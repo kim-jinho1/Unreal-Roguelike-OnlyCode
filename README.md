@@ -4,12 +4,22 @@
 팀 프로젝트 중 **제가 맡은 플레이어 · 전투 쪽 코드만** 모은 열람용 저장소입니다.
 
 - **포트폴리오**: [언리얼 로그라이크 (노션)](https://www.notion.so/3f2048b7ae3481909bb3c6f12efe70dd)
-- **플레이 영상**: https://youtu.be/s9Lx9X6Hd7w
+- **플레이 영상**: https://youtu.be/0J_BJj9XG8w
 - **인원 · 기간**: 2명 (프로그래머 2명) · 2026.08.19 ~ 2026.10.07 · 저는 팀장 · 클라이언트 프로그래밍
 - **엔진**: Unreal Engine 5.8 · C++
 
 > 이 저장소는 **코드 열람용**입니다. 팀 저장소는 비공개이고, 적 AI · 스테이지 흐름 · 보스 · 일부 미니게임 등 팀원 코드와
 > 에셋(Paragon 등)이 빠져 있어서 이 저장소만으로는 빌드되지 않습니다.
+
+## 플레이 영상
+
+[![플레이 영상](https://img.youtube.com/vi/0J_BJj9XG8w/maxresdefault.jpg)](https://youtu.be/0J_BJj9XG8w)
+
+이미지를 누르면 유튜브에서 재생됩니다.
+
+## 포스터
+
+<img src="Media/poster.jpg" alt="Unreal Roguelike 포스터" width="600">
 
 ## 먼저 볼 코드
 
