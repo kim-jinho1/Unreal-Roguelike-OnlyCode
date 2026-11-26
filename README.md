@@ -43,7 +43,7 @@
   - `Component/URGCoreAbilityComponent.h` · `Ability/URGCoreAbility.h`
 - **전투** — 무기 소유(스폰 · 제거는 여기서만), 공격 간격, 재장전, 적중 시 시너지 효과
   - `Component/URGCombatComponent.h` · `Equipment/URGWeapon.h`
-- **수리** — 슬롯별 규칙 표(미니게임 클래스 + 기준 점수)로 미니게임을 열고, 점수(0~1)가 기준을 넘는지만 봅니다
+- **수리** — 슬롯별 규칙 표(미니게임 클래스 + 기준 점수)로 미니게임을 열고, 점수(0~1)가 기준 이상인지만 봅니다
   - `Equipment/URGRepairStation.h` · `UI/URGMinigameUI.h`
 - **HUD** — 컴포넌트 델리게이트를 구독하고 `NativeDestruct`에서 해제합니다. 히트 마커 · 데미지 숫자는 별도 위젯입니다
   - `UI/URGPlayerHUD.h` · `UI/URGHitFeedbackUI.h`
