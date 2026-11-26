@@ -22,6 +22,17 @@ void UURGAttributeComponent::BeginPlay()
 	}
 }
 
+void UURGAttributeComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 컴포넌트만 먼저 제거되는 경우에도 액터가 사라진 컴포넌트로 피해를 보내지 않게 듣기를 끊는다.
+	if (AActor* Owner = GetOwner())
+	{
+		Owner->OnTakeAnyDamage.RemoveDynamic(this, &UURGAttributeComponent::HandleTakeAnyDamage);
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
 bool UURGAttributeComponent::IsAlive() const
 {
 	return !bIsDead && CurrentHealth > 0.0f;

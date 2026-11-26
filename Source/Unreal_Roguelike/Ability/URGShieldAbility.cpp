@@ -9,17 +9,15 @@ UURGShieldAbility::UURGShieldAbility()
 	Duration = 3.0f;
 }
 
+float UURGShieldAbility::GetIncomingDamageScale() const
+{
+	return IsActive() ? DamageScale : 1.0f;
+}
+
 void UURGShieldAbility::Activate()
 {
 	AURGPlayerCharacter* Owner = GetOwnerCharacter();
-	if (Owner == nullptr)
-	{
-		return;
-	}
-
-	Owner->SetIncomingDamageScale(DamageScale);
-
-	if (ShieldMesh == nullptr)
+	if (Owner == nullptr || ShieldMesh == nullptr)
 	{
 		return;
 	}
@@ -27,7 +25,7 @@ void UURGShieldAbility::Activate()
 	// 구체는 발동할 때 만들고 끝나면 없앤다 (부품 교체로 능력이 버려져도 캐릭터에 남지 않게)
 	ShieldComponent = NewObject<UStaticMeshComponent>(Owner);
 	ShieldComponent->SetStaticMesh(ShieldMesh);
-	if (ShieldMaterial)
+	if (ShieldMaterial != nullptr)
 	{
 		ShieldComponent->SetMaterial(0, ShieldMaterial);
 	}
@@ -40,12 +38,7 @@ void UURGShieldAbility::Activate()
 
 void UURGShieldAbility::Deactivate()
 {
-	if (AURGPlayerCharacter* Owner = GetOwnerCharacter())
-	{
-		Owner->SetIncomingDamageScale(1.0f);
-	}
-
-	if (ShieldComponent)
+	if (ShieldComponent != nullptr)
 	{
 		ShieldComponent->DestroyComponent();
 		ShieldComponent = nullptr;

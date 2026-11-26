@@ -16,6 +16,10 @@ class UNREAL_ROGUELIKE_API UURGShieldAbility : public UURGCoreAbility
 public:
 	UURGShieldAbility();
 
+public:
+	/** 지속 중에만 DamageScale, 아니면 1. 값을 따로 기록하지 않고 발동 여부로 답하므로 되돌리기를 빠뜨릴 일이 없다 */
+	virtual float GetIncomingDamageScale() const override;
+
 protected:
 	virtual void Activate() override;
 	virtual void Deactivate() override;

@@ -1,6 +1,5 @@
 #include "Component/URGStateComponent.h"
-#include "Engine/World.h"
-#include "TimerManager.h"
+#include "URGGameplayTags.h"
 
 UURGStateComponent::UURGStateComponent()
 {
@@ -17,14 +16,15 @@ void UURGStateComponent::BeginPlay()
 	bMovementInputEnabled = true;
 }
 
-void UURGStateComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void UURGStateComponent::SetCurrentState(const FGameplayTag& InNewState)
 {
-	if (const UWorld* World = GetWorld())
+	// 사망은 마지막 상태다. 늦게 도착한 피격 종료·대시 종료 등이 되살리지 못하게 막는다.
+	if (CurrentState == URGGameplayTags::Character_State_Death)
 	{
-		World->GetTimerManager().ClearTimer(MovementUnlockTimer);
+		return;
 	}
 
-	Super::EndPlay(EndPlayReason);
+	CurrentState = InNewState;
 }
 
 void UURGStateComponent::ClearCurrentState()
@@ -58,42 +58,8 @@ bool UURGStateComponent::IsCurrentStateEqualTo(const FGameplayTag& TagToCheck) c
 	return CurrentState.MatchesTagExact(TagToCheck);
 }
 
-void UURGStateComponent::ToggleMovementInput(bool bEnabled, float Duration)
+void UURGStateComponent::SetMovementInputEnabled(bool bInEnabled)
 {
-	UWorld* World = GetWorld();
-	if (World == nullptr)
-	{
-		bMovementInputEnabled = bEnabled;
-		return;
-	}
-
-	FTimerManager& TimerManager = World->GetTimerManager();
-
-	// 잠글 때는 예약되어 있던 해제 타이머부터 취소한다.
-	if (bEnabled == false)
-	{
-		TimerManager.ClearTimer(MovementUnlockTimer);
-		bMovementInputEnabled = false;
-		return;
-	}
-
-	// Duration이 없으면(애니메이션 노티파이 등) 예약 없이 즉시 해제한다.
-	if (Duration <= 0.f)
-	{
-		TimerManager.ClearTimer(MovementUnlockTimer);
-		MovementInputEnableAction();
-		return;
-	}
-
-	// 핸들이 남으므로 덮어쓰기/취소가 명확하다.
-	TimerManager.SetTimer(
-		MovementUnlockTimer,
-		this, &UURGStateComponent::MovementInputEnableAction,
-		Duration, false);
-}
-
-void UURGStateComponent::MovementInputEnableAction()
-{
-	bMovementInputEnabled = true;
-	ClearCurrentState();
+	// 장부만 고친다. 잠금을 언제 풀지(타이머·노티파이)와 상태를 같이 지울지는 잠근 쪽이 정한다.
+	bMovementInputEnabled = bInEnabled;
 }

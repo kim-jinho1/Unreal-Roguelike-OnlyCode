@@ -28,7 +28,7 @@ void UURGGameOverUI::NativeOnInitialized()
 	}
 }
 
-void UURGGameOverUI::SetProgress(const int32 InChapter, const int32 InRoom, const int32 InTotalRooms) const
+void UURGGameOverUI::SetProgress(int32 InChapter, int32 InRoom, int32 InTotalRooms) const
 {
 	if (ProgressText)
 	{
@@ -72,7 +72,7 @@ void UURGGameOverUI::HandleTitleClicked()
 	OnTitleRequested.Broadcast();
 }
 
-void UURGGameOverUI::SetupSlot(UURGPartSlotUI* InSlotUI, UTextBlock* InText, const UURGPartComponent* InPartComponent, const EURGPartSlot InSlot) const
+void UURGGameOverUI::SetupSlot(UURGPartSlotUI* InSlotUI, UTextBlock* InText, const UURGPartComponent* InPartComponent, EURGPartSlot InSlot) const
 {
 	const FURGPartSlotState& State = InPartComponent->GetSlotState(InSlot);
 

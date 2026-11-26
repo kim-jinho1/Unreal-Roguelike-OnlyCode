@@ -156,13 +156,13 @@ void UURGBoltMinigameUI::UpdateBoltVisual() const
 {
 	const float Progress = FMath::Clamp(TurnedDegrees / (RequiredTurns * 360.0f), 0.0f, 1.0f);
 
-	if (BoltImage)
+	if (BoltImage != nullptr)
 	{
 		BoltImage->SetRenderTransformAngle(TurnedDegrees);
 		BoltImage->SetColorAndOpacity(FMath::Lerp(LooseColor, TightColor, Progress));
 	}
 
-	if (BoltArc)
+	if (BoltArc != nullptr)
 	{
 		if (UMaterialInstanceDynamic* ArcMaterial = BoltArc->GetDynamicMaterial())
 		{

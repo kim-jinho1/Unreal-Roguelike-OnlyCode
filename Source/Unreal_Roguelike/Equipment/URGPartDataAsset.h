@@ -16,29 +16,29 @@ struct FURGLegStats
 	GENERATED_BODY()
 
 	/** 대시 가능 여부 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LegStats|Dash")
 	bool bCanDash = false;
 
 	/** 이동 속도 배율 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LegStats|Movement", meta = (ClampMin = "0.1"))
 	float MoveSpeedScale = 1.0f;
 
 	/** 대시 속도 배율 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.1", EditCondition = "bCanDash"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LegStats|Dash", meta = (ClampMin = "0.1", EditCondition = "bCanDash"))
 	float DashSpeedScale = 1.0f;
 
 	/** 대시 쿨다운 배율 (작을수록 자주 대시) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.1", EditCondition = "bCanDash"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LegStats|Dash", meta = (ClampMin = "0.1", EditCondition = "bCanDash"))
 	float DashCooldownScale = 1.0f;
 
 	/** 최대 점프 횟수 (2면 2단 점프) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LegStats|Movement", meta = (ClampMin = "1"))
 	int32 JumpMaxCount = 1;
 
 };
 
 /**
- * 머리 부품이 주는 패시브 수치. 치명타는 무기 데미지에, 드랍률은 드랍 시스템에, 적 표시는 HUD/연출에 쓴다.
+ * 머리 부품이 주는 패시브 수치. 치명타는 무기 데미지에, 드랍률은 드랍 시스템에, 적 표시는 레이더(RadarComponent)에 쓴다.
  */
 USTRUCT(BlueprintType)
 struct FURGHeadStats
@@ -46,19 +46,19 @@ struct FURGHeadStats
 	GENERATED_BODY()
 
 	/** 치명타 확률 (0~1) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0", ClampMax = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeadStats|Crit", meta = (ClampMin = "0", ClampMax = "1"))
 	float CritChance = 0.0f;
 
 	/** 치명타 시 데미지 배율 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeadStats|Crit", meta = (ClampMin = "1"))
 	float CritDamageScale = 2.0f;
 
 	/** 드랍률 배율 (드랍 시스템이 GetDropRateScale로 읽는다) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeadStats|Drop", meta = (ClampMin = "0"))
 	float DropRateScale = 1.0f;
 
-	/** 적 위치 표시 여부 (표시 연출은 미구현) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	/** 적 위치를 레이더에 표시할지 (파손 전까지 RadarComponent가 켠다) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HeadStats|Radar")
 	bool bRevealEnemies = false;
 
 };

@@ -4,6 +4,8 @@
 #include "GameFramework/PlayerController.h"
 #include "URGPlayerController.generated.h"
 
+class UURGGameInstance;                     // 멤버 함수 포인터 타입에는 인라인 class 선언을 쓸 수 없다
+
 /** 일시정지 요청 알림 (ESC). 실제 일시정지 화면은 UI 담당이 BP에서 바인딩한다 */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateOnPauseRequested);
 
@@ -14,11 +16,15 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateOnPlayerDied);
  * 플레이어 컨트롤러.
  * HUD 위젯을 생성해 폰에 바인딩하고, 폰의 시스템 이벤트(일시정지 요청·사망)를 델리게이트로 외부에 알린다.
  * 사망 시 게임오버 화면을 띄우고 다시 시작·종료 요청을 게임 인스턴스에 넘긴다.
+ * 맵 이동 화면 연출(도착 페이드·출구 검은 화면·이동 실패 감지)은 StageTransitionComponent에 맡긴다.
  */
 UCLASS()
 class UNREAL_ROGUELIKE_API AURGPlayerController : public APlayerController
 {
 	GENERATED_BODY()
+
+public:
+	AURGPlayerController();
 
 protected:
 	virtual void BeginPlay() override;
@@ -30,6 +36,12 @@ public:
 
 	/** 폰의 ESC 입력에서 호출. OnPauseRequested를 브로드캐스트한다 */
 	void RequestPause();
+
+	/** 게임 입력을 막고 위젯에 포커스와 커서를 준다 (수리 메뉴 같은 모달 UI용) */
+	void OpenModalWidget(class UUserWidget* InWidget);
+
+	/** 모달 UI를 닫고 게임 입력으로 돌린다. 사망 뒤에는 게임오버 입력을 지키려고 아무것도 하지 않는다 */
+	void CloseModalWidget();
 
 protected:
 	/** HUD 위젯 생성 후 뷰포트에 추가 (로컬 컨트롤러, 1회) */
@@ -59,18 +71,11 @@ protected:
 	/** 결과 화면의 타이틀로: 진행도를 버리고 타이틀 맵으로 이동 */
 	void HandleTitleRequested();
 
+	/** 결과 화면의 이동 요청 공통 처리: 게임 입력으로 되돌린 뒤 게임 인스턴스에 요청하고, 실패하면 결과 화면 조작을 되살린다 */
+	void TravelFromResultScreen(bool (UURGGameInstance::*InRequest)());
+
 	/** 결과 화면의 요청이 실패했을 때 화면에 갇히지 않게 버튼과 UI 입력을 되살린다 */
 	void RestoreResultScreenInput();
-
-	/** 맵의 출구마다 진입 이벤트를 구독한다 (출구는 맵에 미리 배치되어 BeginPlay 시점에 모두 존재한다) */
-	void BindStageExits();
-
-	/** 출구 진입: 맵 이동 직전에 화면을 검게 덮어 로딩으로 멈춘 프레임을 가린다 */
-	UFUNCTION()
-	void HandleExitEntered(APawn* InPlayer);
-
-	/** 검은 화면에서 서서히 밝아진다 (도착 직후, 또는 이동이 실패해 같은 맵에 남은 경우) */
-	void FadeInFromBlack();
 
 public:
 	/** 일시정지 요청 시 호출되는 델리게이트 */
@@ -98,17 +103,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerController|UI", meta = (ClampMin = "0.0"))
 	float GameOverDelay = 2.0f;
 
-	/** 맵 도착 후 검은 화면을 유지하는 시간 (초). 첫 프레임들의 셰이더 준비·스트리밍 멈춤을 가린다 */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerController|Fade", meta = (ClampMin = "0.0"))
-	float ArrivalFadeHoldDuration = 0.3f;
-
-	/** 검은 화면에서 밝아지는 시간 (초) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerController|Fade", meta = (ClampMin = "0.0"))
-	float FadeInDuration = 0.6f;
-
-	/** 출구 진입 후 이 시간 안에 맵이 바뀌지 않으면 이동 실패로 보고 화면을 되살린다 (초) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerController|Fade", meta = (ClampMin = "0.1"))
-	float TravelCoverTimeout = 2.0f;
+	/** 맵 이동 화면 연출 (도착 페이드·출구 검은 화면·이동 실패 감지) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PlayerController|Components")
+	TObjectPtr<class UURGStageTransitionComponent> StageTransitionComponent;
 
 private:
 	UPROPERTY()
@@ -121,17 +118,14 @@ private:
 	/** 사망 → 게임오버 화면 지연 타이머 */
 	FTimerHandle GameOverTimer;
 
-	/** 도착 후 검은 화면 유지 → 밝아지기 시작 타이머 */
-	FTimerHandle ArrivalFadeTimer;
-
-	/** 출구 진입 후 이동 실패 감지 타이머 */
-	FTimerHandle TravelCoverTimer;
-
 	/** HUD 폰 바인딩 완료 여부 (중복 초기화 방지) */
 	bool bHUDInitialized = false;
 
 	/** OnDeath 바인딩 완료 여부 (중복 바인딩 방지) */
 	bool bDeathBound = false;
+
+	/** 플레이어 사망 여부. 사망 뒤에는 모달 닫기가 입력 모드를 되돌리지 않는다 */
+	bool bIsPlayerDead = false;
 
 };
 

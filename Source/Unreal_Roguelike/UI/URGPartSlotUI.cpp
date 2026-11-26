@@ -14,7 +14,7 @@ void UURGPartSlotUI::NativeConstruct()
 	UpdateAbilityVisuals(0.0f);
 }
 
-void UURGPartSlotUI::NativeTick(const FGeometry& MyGeometry, const float InDeltaTime)
+void UURGPartSlotUI::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
@@ -39,22 +39,22 @@ void UURGPartSlotUI::NativeTick(const FGeometry& MyGeometry, const float InDelta
 	}
 }
 
-void UURGPartSlotUI::SetAbilityState(const bool bInActive, const float InCooldownEndTime, const float InCooldownDuration)
+void UURGPartSlotUI::SetAbilityState(bool bInActive, float InCooldownEndTime, float InCooldownDuration)
 {
 	bAbilityActive = bInActive;
 	CooldownEndTime = InCooldownDuration > 0.0f ? InCooldownEndTime : 0.0f;
 	CooldownDuration = InCooldownDuration;
 
 	const UWorld* World = GetWorld();
-	const float Remaining = (CooldownEndTime > 0.0f && World) ? CooldownEndTime - World->GetTimeSeconds() : 0.0f;
+	const float Remaining = (CooldownEndTime > 0.0f && World != nullptr) ? CooldownEndTime - World->GetTimeSeconds() : 0.0f;
 	UpdateAbilityVisuals(Remaining);
 }
 
-void UURGPartSlotUI::UpdateAbilityVisuals(const float InCooldownRemaining) const
+void UURGPartSlotUI::UpdateAbilityVisuals(float InCooldownRemaining) const
 {
 	const bool bCoolingDown = InCooldownRemaining > 0.0f && CooldownDuration > 0.0f;
 
-	if (CooldownArc)
+	if (CooldownArc != nullptr)
 	{
 		if (bCoolingDown)
 		{
@@ -71,7 +71,7 @@ void UURGPartSlotUI::UpdateAbilityVisuals(const float InCooldownRemaining) const
 		CooldownArc->SetVisibility(bCoolingDown ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 	}
 
-	if (CooldownText)
+	if (CooldownText != nullptr)
 	{
 		if (bCoolingDown)
 		{
@@ -81,7 +81,7 @@ void UURGPartSlotUI::UpdateAbilityVisuals(const float InCooldownRemaining) const
 		CooldownText->SetVisibility(bCoolingDown ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 	}
 
-	if (PartIcon)
+	if (PartIcon != nullptr)
 	{
 		if (bBroken)
 		{
@@ -93,18 +93,18 @@ void UURGPartSlotUI::UpdateAbilityVisuals(const float InCooldownRemaining) const
 		}
 	}
 
-	if (ActiveGlow)
+	if (ActiveGlow != nullptr)
 	{
 		ActiveGlow->SetVisibility(bAbilityActive ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 	}
 }
 
-void UURGPartSlotUI::SetSlotState(const FURGPartSlotState& InState, const bool bInArmSlot)
+void UURGPartSlotUI::SetSlotState(const FURGPartSlotState& InState, bool bInArmSlot)
 {
 	const bool bIsEquipped = InState.IsEquipped();
 	bBroken = bIsEquipped && InState.Condition == EURGPartCondition::Broken;
 
-	if (DurabilityArc)
+	if (DurabilityArc != nullptr)
 	{
 		if (UMaterialInstanceDynamic* ArcMaterial = DurabilityArc->GetDynamicMaterial())
 		{
@@ -120,10 +120,10 @@ void UURGPartSlotUI::SetSlotState(const FURGPartSlotState& InState, const bool b
 		}
 	}
 
-	if (PartIcon)
+	if (PartIcon != nullptr)
 	{
 		UTexture2D* Icon = InState.GetIcon();
-		if (bIsEquipped && Icon)
+		if (bIsEquipped && Icon != nullptr)
 		{
 			PartIcon->SetBrushFromTexture(Icon);
 			PartIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
@@ -136,9 +136,9 @@ void UURGPartSlotUI::SetSlotState(const FURGPartSlotState& InState, const bool b
 
 	// 아이콘 색은 쿨다운 표시와 함께 정하므로 남은 쿨다운으로 다시 그린다
 	const UWorld* World = GetWorld();
-	UpdateAbilityVisuals((CooldownEndTime > 0.0f && World) ? CooldownEndTime - World->GetTimeSeconds() : 0.0f);
+	UpdateAbilityVisuals((CooldownEndTime > 0.0f && World != nullptr) ? CooldownEndTime - World->GetTimeSeconds() : 0.0f);
 
-	if (PartNameText)
+	if (PartNameText != nullptr)
 	{
 		if (bInArmSlot && (!bIsEquipped || InState.Condition == EURGPartCondition::Broken))
 		{

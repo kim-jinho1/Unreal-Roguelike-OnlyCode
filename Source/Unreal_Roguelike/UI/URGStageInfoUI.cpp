@@ -1,9 +1,9 @@
 #include "UI/URGStageInfoUI.h"
 #include "Components/TextBlock.h"
 
-void UURGStageInfoUI::SetStageInfo(const int32 InStage, const int32 InRoom, const int32 InTotalRooms) const
+void UURGStageInfoUI::SetStageInfo(int32 InStage, int32 InRoom, int32 InTotalRooms) const
 {
-	if (StageText)
+	if (StageText != nullptr)
 	{
 		StageText->SetText(FText::Format(
 			StageTextFormat,

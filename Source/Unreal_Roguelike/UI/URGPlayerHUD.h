@@ -2,28 +2,30 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "GameplayTagContainer.h"
 #include "URGDefine.h"
 #include "URGPlayerHUD.generated.h"
 
 struct FURGPartSlotState;
-struct FGameplayTag;
-struct FGameplayTagContainer;
 
-/** 화면에 떠 있는 데미지 숫자 하나 */
-struct FURGDamageNumber
+/** 시너지 태그 하나의 화면 표시 정보. 배열 순서가 패널·비교 창의 표시 순서다 */
+USTRUCT(BlueprintType)
+struct FURGSynergyDisplay
 {
-	/** 맞은 월드 위치 (매 페인트마다 화면 좌표로 투영한다) */
-	FVector WorldLocation = FVector::ZeroVector;
+	GENERATED_BODY()
 
-	/** 숫자가 겹치지 않도록 생성 시 정한 화면 오프셋 */
-	FVector2D ScreenJitter = FVector2D::ZeroVector;
+	/** 시너지 태그 (Part_Tag_*) */
+	UPROPERTY(EditDefaultsOnly, Category = "SynergyDisplay")
+	FGameplayTag Tag;
 
-	FText Text;
+	/** 표시 이름 */
+	UPROPERTY(EditDefaultsOnly, Category = "SynergyDisplay")
+	FText Name;
 
-	/** 생성 시각 (실제 초) */
-	float SpawnTime = 0.0f;
+	/** 발동 중 글자 색 */
+	UPROPERTY(EditDefaultsOnly, Category = "SynergyDisplay")
+	FLinearColor Color = FLinearColor::White;
 
-	bool bCrit = false;
 };
 
 /** 슬롯마다 마지막으로 본 부품과 손상 단계 (같은 부품이 나빠졌을 때만 알리기 위한 기록) */
@@ -45,27 +47,20 @@ class UNREAL_ROGUELIKE_API UURGPlayerHUD : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	UURGPlayerHUD(const FObjectInitializer& ObjectInitializer);
+
 	/**
 	 * 플레이어 폰의 컴포넌트에 바인딩하고 현재 값을 즉시 반영한다.
 	 * 위젯 생성이 OnPossess보다 앞설 수 있으므로 폰을 확보한 AURGPlayerController가 명시적으로 호출한다.
 	 */
 	void InitializeForPawn(APawn* InPawn);
 
+	/** InitializeForPawn으로 건 폰 컴포넌트·무기 구독을 모두 푼다. 다시 연결할 때와 위젯이 사라질 때 부른다 */
+	void UnbindFromPawn();
+
 	/** 관제 AI 통신 텍스트 표시 (InDuration 초 후 자동 숨김) */
 	UFUNCTION(BlueprintCallable, Category = "PlayerHUD|Comm")
 	void ShowCommMessage(const FText& InMessage, float InDuration = 3.0f);
-
-	/** 코어 능력 발동 (플레이어 캐릭터 OnCoreAbilityActivated): 문구가 있으면 통신 로그에 표시 */
-	void HandleCoreAbilityActivated(const FText& InMessage);
-
-	/** 코어 능력 상태 변경 (플레이어 캐릭터 OnCoreAbilityStateChanged): 코어 슬롯에 지속·쿨다운 표시 */
-	void HandleCoreAbilityStateChanged(bool bInActive, float InCooldownEndTime, float InCooldownDuration);
-
-	/** 대시 쿨다운 변경 (플레이어 캐릭터 OnDashCooldownChanged): 다리 슬롯에 쿨다운 표시 */
-	void HandleDashCooldownChanged(float InCooldownEndTime, float InCooldownDuration);
-
-	/** 공격 쿨다운 변경 (플레이어 캐릭터 OnAttackCooldownChanged): 팔 슬롯에 쿨다운 표시 */
-	void HandleAttackCooldownChanged(float InCooldownEndTime, float InCooldownDuration);
 
 	/** 스테이지·방 진행 텍스트 갱신 (던전 시스템이 방 전환 시 호출) */
 	UFUNCTION(BlueprintCallable, Category = "PlayerHUD|Stage")
@@ -86,25 +81,31 @@ protected:
 	/** 무기 교체 알림을 받아 새 무기의 탄약 델리게이트로 구독을 옮긴다 */
 	void HandleWeaponChanged();
 
-	/** 시너지 발동·해제 (플레이어 캐릭터 OnSynergyChanged): 통신 로그 문구 + 네 슬롯의 태그 색 갱신 */
+	/** 시너지 발동·해제 (UURGPartComponent::OnSynergyChanged): 통신 로그 문구 + 네 슬롯의 태그 색 갱신 */
 	void HandleSynergyChanged(const FGameplayTag& InTag, bool bInActive);
 
-	/** 바라보는 상호작용 대상 변경 (플레이어 캐릭터 OnInteractFocusChanged): 부품 픽업이면 비교 UI를 띄운다 */
+	/** 바라보는 상호작용 대상 변경 (InteractComponent OnInteractFocusChanged): 부품 픽업이면 비교 UI를 띄운다 */
 	void HandleInteractFocusChanged(AActor* InActor);
 
 	/** 레이더 탐지 결과 (RadarComponent OnRadarUpdated): 적 방향 마커 갱신 */
 	void HandleRadarUpdated(const TArray<FVector>& InEnemyLocations);
 
-	/** 무기 적중 (CombatComponent OnHitDealt): 히트 마커를 켜고 데미지 숫자를 추가한다 */
+	/** 무기 적중 (CombatComponent OnHitDealt): 히트 피드백 위젯에 기록을 넘긴다 */
 	void HandleHitDealt(const FVector& InLocation, float InDamage, bool bInCrit, bool bInKilled);
 
+	/** 코어 능력 발동 (UURGCoreAbilityComponent::OnCoreAbilityActivated): 문구가 있으면 통신 로그에 표시 */
+	void HandleCoreAbilityActivated(const FText& InMessage);
+
+	/** 코어 능력 상태 변경 (UURGCoreAbilityComponent::OnCoreAbilityStateChanged): 코어 슬롯에 지속·쿨다운 표시 */
+	void HandleCoreAbilityStateChanged(bool bInActive, float InCooldownEndTime, float InCooldownDuration);
+
+	/** 대시 쿨다운 변경 (DashComponent OnDashCooldownChanged): 다리 슬롯에 쿨다운 표시 */
+	void HandleDashCooldownChanged(float InCooldownEndTime, float InCooldownDuration);
+
+	/** 공격 쿨다운 변경 (CombatComponent OnAttackCooldownChanged): 팔 슬롯에 쿨다운 표시 */
+	void HandleAttackCooldownChanged(float InCooldownEndTime, float InCooldownDuration);
+
 private:
-	/** 히트 마커(크로스헤어 둘레 X)와 데미지 숫자를 그린다. 표시 중인 것이 없으면 아무것도 그리지 않는다 */
-	int32 PaintHitFeedback(const FGeometry& InGeometry, FSlateWindowElementList& OutElements, int32 InLayerId) const;
-
-	/** 피드백 애니메이션 기준 시각. 히트스톱·시간 감속에 영향받지 않도록 실제 초 */
-	float GetFeedbackTime() const;
-
 	friend class FURGBossHUDLifecycleTest;
 	/** 늦게 스폰되는 보스도 찾되, 체력 갱신은 컴포넌트 이벤트로 처리한다. */
 	void RefreshBossTarget();
@@ -114,6 +115,9 @@ private:
 	void HandleBossDeath();
 	/** 슬롯 부품의 시너지 태그 이름을 모아 표시. 부품이 쓸 수 있고 태그 중 하나라도 발동 중이면 강조 */
 	void RefreshSlotSynergyTags(EURGPartSlot InSlot, const FURGPartSlotState& InState) const;
+
+	/** SynergyDisplays에서 태그의 표시 정보를 찾는다 (모르는 태그면 nullptr) */
+	const FURGSynergyDisplay* FindSynergyDisplay(const FGameplayTag& InTag) const;
 
 	/** 시너지 태그의 표시 이름 (모르는 태그면 빈 텍스트) */
 	const FText& GetSynergyTagName(const FGameplayTag& InTag) const;
@@ -138,9 +142,6 @@ private:
 
 	/** 바라보는 픽업이 있으면 현재 부품과 비교해 비교 UI를 채우고, 없으면 숨긴다 */
 	void RefreshPartCompare() const;
-
-	/** 0 나눗셈을 피한 비율(0.0 ~ 1.0) 계산 */
-	float GetSafeRatio(float InCurrent, float InMax) const;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Boss")
@@ -176,17 +177,13 @@ protected:
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidgetOptional))
 	TObjectPtr<class UURGEnemyRadarUI> EnemyRadarUI;
 
-	/** 열 시너지 태그 표시 이름 */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
-	FText ThermalTagName = NSLOCTEXT("URG.PlayerHUD", "ThermalTag", "열");
+	/** 히트 마커·데미지 숫자 (화면 전체 크기). 선택 바인딩 */
+	UPROPERTY(BlueprintReadWrite, meta = (BindWidgetOptional))
+	TObjectPtr<class UURGHitFeedbackUI> HitFeedbackUI;
 
-	/** 전기 시너지 태그 표시 이름 */
+	/** 시너지 태그별 이름·색. 배열 순서대로 패널 줄과 비교 창 미리보기를 쓴다 (기본값은 생성자) */
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
-	FText ElectricTagName = NSLOCTEXT("URG.PlayerHUD", "ElectricTag", "전기");
-
-	/** 강화 시너지 태그 표시 이름 */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
-	FText ReinforceTagName = NSLOCTEXT("URG.PlayerHUD", "ReinforceTag", "강화");
+	TArray<FURGSynergyDisplay> SynergyDisplays;
 
 	/** 시너지 발동 시 통신 로그 문구 ({0} = 태그 이름, {1} = 효과 설명) */
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
@@ -211,18 +208,6 @@ protected:
 	/** 부품 슬롯의 시너지 태그 표시 ({0} = 태그 이름들). 부품 이름과 구분되도록 괄호로 묶는다 */
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
 	FText SlotTagFormat = NSLOCTEXT("URG.PlayerHUD", "SlotTag", "[{0}]");
-
-	/** 강화 시너지 색 (발동 중 글자) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
-	FLinearColor ReinforceTagColor = FLinearColor(0.7f, 0.55f, 1.0f, 1.0f);
-
-	/** 열 시너지 색 (발동 중 글자) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
-	FLinearColor ThermalTagColor = FLinearColor(1.0f, 0.4f, 0.1f, 1.0f);
-
-	/** 전기 시너지 색 (발동 중 글자) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
-	FLinearColor ElectricTagColor = FLinearColor(0.3f, 0.85f, 1.0f, 1.0f);
 
 	/** 발동 전 시너지 글자 색 */
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|Synergy")
@@ -277,53 +262,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|PartCondition", meta = (ClampMin = "0.1"))
 	float PartConditionMessageDuration = 4.0f;
 
-	/** 히트 마커 표시 시간 (초) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "0"))
-	float HitMarkerDuration = 0.15f;
-
-	/** 처치 마커 표시 시간 (초) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "0"))
-	float KillMarkerDuration = 0.3f;
-
-	/** 화면 중앙에서 X 선이 시작되는 거리 (px) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "0"))
-	float HitMarkerGap = 8.0f;
-
-	/** X 선 한 획의 길이 (px) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "1"))
-	float HitMarkerLength = 10.0f;
-
-	/** 처치 마커 크기 배율 */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "1"))
-	float KillMarkerScale = 1.4f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback")
-	FLinearColor HitMarkerColor = FLinearColor::White;
-
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback")
-	FLinearColor KillMarkerColor = FLinearColor(1.0f, 0.15f, 0.1f, 1.0f);
-
-	/** 데미지 숫자가 떠 있는 시간 (초) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "0.1"))
-	float DamageNumberDuration = 0.7f;
-
-	/** 데미지 숫자가 사라지기 전까지 떠오르는 높이 (px) */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "0"))
-	float DamageNumberRise = 60.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "6"))
-	int32 DamageNumberFontSize = 18;
-
-	/** 치명타 숫자 크기 배율 */
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback", meta = (ClampMin = "1"))
-	float CritFontScale = 1.4f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback")
-	FLinearColor DamageNumberColor = FLinearColor::White;
-
-	UPROPERTY(EditDefaultsOnly, Category = "PlayerHUD|HitFeedback")
-	FLinearColor CritDamageNumberColor = FLinearColor(1.0f, 0.85f, 0.1f, 1.0f);
-
 private:
 	TWeakObjectPtr<class AURGTempleBoss> BoundBoss;
 	TWeakObjectPtr<class UURGAttributeComponent> BossAttribute;
@@ -334,8 +272,15 @@ private:
 	float BossCurrentHealth = 0.0f;
 	float BossMaxHealth = 0.0f;
 	bool bShowBossHealth = false;
-	/** 플레이어 캐릭터 (발동 중인 시너지 조회용) */
+
+	/** InitializeForPawn으로 구독한 폰 (NativeDestruct·재연결 때 구독 해제용) */
+	TWeakObjectPtr<APawn> BoundPawn;
+
+	/** 플레이어 캐릭터 (강화 시너지 설명 수치 조회용) */
 	TWeakObjectPtr<class AURGPlayerCharacter> PlayerCharacter;
+
+	/** 폰의 부품 컴포넌트 (슬롯·시너지 상태 조회용) */
+	TWeakObjectPtr<class UURGPartComponent> PartComponent;
 
 	/** 지금 바라보는 부품 픽업 (주워지면 사라지므로 약참조) */
 	TWeakObjectPtr<class AURGPartPickup> FocusedPickup;
@@ -348,13 +293,6 @@ private:
 
 	/** 슬롯마다 마지막으로 본 부품·손상 단계 (손상 알림 판단용) */
 	TMap<EURGPartSlot, FURGSlotConditionRecord> LastSlotConditions;
-
-	/** 떠 있는 데미지 숫자 (적중 때 추가, 오래된 것은 다음 적중 때 정리) */
-	TArray<FURGDamageNumber> DamageNumbers;
-
-	/** 마지막 적중·처치 시각 (실제 초). 처음엔 아주 과거로 두어 마커가 꺼져 있게 한다 */
-	float LastHitTime = -1000.0f;
-	float LastKillTime = -1000.0f;
 
 };
 

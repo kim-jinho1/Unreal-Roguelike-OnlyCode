@@ -55,15 +55,19 @@ private:
 	void SetHoveredEntry(int32 InIndex);
 
 protected:
+	/** 휠의 머리 칸 */
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	TObjectPtr<class UURGPartSlotUI> HeadSlot;
 
+	/** 휠의 다리 칸 */
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	TObjectPtr<class UURGPartSlotUI> LegSlot;
 
+	/** 휠의 코어 칸 */
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	TObjectPtr<class UURGPartSlotUI> CoreSlot;
 
+	/** 휠의 팔 칸 */
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	TObjectPtr<class UURGPartSlotUI> ArmSlot;
 

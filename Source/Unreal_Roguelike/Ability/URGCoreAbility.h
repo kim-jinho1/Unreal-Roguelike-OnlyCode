@@ -8,7 +8,7 @@
  * 코어 부품이 제공하는 액티브 능력(Q)의 베이스.
  * 쿨다운·지속 시간·타이머와 공통 피드백(발동 메시지·파티클)을 처리하고, 실제 효과는 파생 클래스가 Activate/Deactivate에서 구현한다.
  * 파티클·메시지 같은 값은 BP 자식 클래스에서 지정한다.
- * 캐릭터가 코어 슬롯 변경 시 인스턴스를 만들고 Initialize로 소유자를 넘긴다.
+ * UURGCoreAbilityComponent가 코어 슬롯 변경 시 인스턴스를 만들고 Initialize로 자신을 넘긴다. 발동·상태 알림은 그 컴포넌트로 보낸다.
  */
 UCLASS(Abstract, Blueprintable, BlueprintType)
 class UNREAL_ROGUELIKE_API UURGCoreAbility : public UObject
@@ -19,8 +19,8 @@ public:
 	/** UObject는 월드가 없어 타이머를 못 쓰므로 소유자의 월드를 돌려준다 */
 	virtual UWorld* GetWorld() const override;
 
-	/** 소유 캐릭터 지정 (NewObject 직후 한 번) */
-	void Initialize(class AURGPlayerCharacter* InOwner);
+	/** 소유 컴포넌트 지정 (NewObject 직후 한 번). 효과를 걸 캐릭터는 그 컴포넌트의 소유자 */
+	void Initialize(class UURGCoreAbilityComponent* InOwnerComponent);
 
 	/** 쿨다운이 끝났으면 발동. 지속 능력이면 Duration 뒤 Deactivate */
 	bool TryActivate();
@@ -28,12 +28,15 @@ public:
 	/** 발동 중이면 즉시 종료하고 타이머 해제 (사망·부품 교체용) */
 	void Cancel();
 
-	/** 쿨다운 배율 (손상 단계용, 1보다 크면 더 오래 기다림) */
-	FORCEINLINE void SetCooldownScale(float InScale) { CooldownScale = FMath::Max(InScale, 0.1f); }
+	/** 쿨다운 배율 (손상 단계용, 1보다 크면 더 오래 기다림). 바뀌면 끝나는 시각도 바뀌므로 상태를 다시 알린다 */
+	void SetCooldownScale(float InScale);
 	FORCEINLINE bool IsActive() const { return bIsActive; }
 
 	/** 쿨다운이 끝났는지 */
 	bool IsReady() const;
+
+	/** 받는 피해 배율. 기본은 1이고 피해를 줄이는 능력이 발동 중에만 낮춘다 */
+	virtual float GetIncomingDamageScale() const { return 1.0f; }
 
 protected:
 	/** 효과 시작 */
@@ -51,7 +54,7 @@ private:
 	/** 지속 시간 종료 (타이머 콜백) */
 	void HandleDurationEnd();
 
-	/** 지금의 지속·쿨다운 상태를 캐릭터를 거쳐 HUD에 알린다 */
+	/** 지금의 지속·쿨다운 상태를 소유 컴포넌트를 거쳐 HUD에 알린다 */
 	void NotifyStateChanged() const;
 
 protected:
@@ -72,6 +75,10 @@ protected:
 	TObjectPtr<class UParticleSystem> ActivateEffect;
 
 private:
+	/** 알림을 받을 소유 컴포넌트 */
+	TWeakObjectPtr<class UURGCoreAbilityComponent> OwnerComponent;
+
+	/** 효과를 걸 캐릭터 (소유 컴포넌트의 소유자, Initialize에서 한 번 캐싱) */
 	TWeakObjectPtr<class AURGPlayerCharacter> OwnerCharacter;
 
 	FTimerHandle DurationTimer;

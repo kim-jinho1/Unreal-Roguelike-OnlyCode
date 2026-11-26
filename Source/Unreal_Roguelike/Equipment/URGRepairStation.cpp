@@ -1,24 +1,21 @@
 #include "Equipment/URGRepairStation.h"
-#include "Blueprint/UserWidget.h"
 #include "Component/URGAttributeComponent.h"
 #include "Component/URGPartComponent.h"
 #include "Component/URGResourceComponent.h"
-#include "Components/StaticMeshComponent.h"
+#include "Core/URGPlayerController.h"
 #include "Equipment/URGPartDataAsset.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
 #include "UI/URGMinigameUI.h"
+#include "UI/URGRAMMinigameUI.h"
 #include "UI/URGRepairMenuUI.h"
 #include "UI/URGWeldMinigameUI.h"
 #include "UI/URGWireMinigameUI.h"
-#include "UI/URGRAMMinigameUI.h"
+#include "Blueprint/UserWidget.h"
+#include "Components/StaticMeshComponent.h"
+#include "GameFramework/Pawn.h"
 
 AURGRepairStation::AURGRepairStation()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	LegMinigameClass = UURGWeldMinigameUI::StaticClass();
-	CoreMinigameClass = UURGWireMinigameUI::StaticClass();
-	HeadMinigameClass = UURGRAMMinigameUI::StaticClass();
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StationMesh"));
 	SetRootComponent(Mesh);
@@ -28,6 +25,14 @@ AURGRepairStation::AURGRepairStation()
 	Mesh->SetCollisionObjectType(ECC_WorldDynamic);
 	Mesh->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Mesh->SetCollisionResponseToChannel(ECC_InteractTrace, ECR_Block);
+
+	// 팔은 BP에서 볼트 미니게임 WBP를 넣는다. 나머지 셋은 WBP 없이 C++ 위젯이 직접 그리므로 클래스를 바로 쓴다
+	SlotRules.Add(EURGPartSlot::Arm, FURGRepairRule());
+	// 용접은 경로 이탈 거리로 점수를 매기므로 완벽을 요구하지 않는다
+	SlotRules.Add(EURGPartSlot::Leg, FURGRepairRule(UURGWeldMinigameUI::StaticClass(), 0.75f));
+	SlotRules.Add(EURGPartSlot::Core, FURGRepairRule(UURGWireMinigameUI::StaticClass(), 1.0f));
+	// 램 장착은 성공(1)·실패(0)만 낸다
+	SlotRules.Add(EURGPartSlot::Head, FURGRepairRule(UURGRAMMinigameUI::StaticClass(), 1.0f));
 }
 
 void AURGRepairStation::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -42,12 +47,11 @@ void AURGRepairStation::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AURGRepairStation::Interact_Implementation(AActor* InInstigator)
 {
-	APawn* Pawn = Cast<APawn>(InInstigator);
-	APlayerController* Controller = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
-	UURGPartComponent* Part = InInstigator ? InInstigator->FindComponentByClass<UURGPartComponent>() : nullptr;
+	const APawn* Pawn = Cast<APawn>(InInstigator);
+	AURGPlayerController* Controller = Pawn != nullptr ? Cast<AURGPlayerController>(Pawn->GetController()) : nullptr;
+	UURGPartComponent* Part = InInstigator != nullptr ? InInstigator->FindComponentByClass<UURGPartComponent>() : nullptr;
 
-	if (Controller == nullptr || Part == nullptr || MenuClass == nullptr
-		|| (MinigameClass == nullptr && LegMinigameClass == nullptr && CoreMinigameClass == nullptr && HeadMinigameClass == nullptr))
+	if (Controller == nullptr || Part == nullptr || MenuClass == nullptr)
 	{
 		return;
 	}
@@ -76,7 +80,7 @@ void AURGRepairStation::Interact_Implementation(AActor* InInstigator)
 	Menu->InitializeForPart(Part, CurrentResource, RepairCost);
 	Menu->AddToViewport();
 
-	FocusWidget(Menu);
+	Controller->OpenModalWidget(Menu);
 }
 
 FText AURGRepairStation::GetInteractText_Implementation() const
@@ -104,27 +108,18 @@ bool AURGRepairStation::CanInteract_Implementation(AActor* InInstigator) const
 
 void AURGRepairStation::HandleSlotSelected(EURGPartSlot InSlot)
 {
-	APlayerController* Controller = PlayerController.Get();
-	if (Controller == nullptr)
+	AURGPlayerController* Controller = PlayerController.Get();
+	const FURGRepairRule* Rule = SlotRules.Find(InSlot);
+	if (Controller == nullptr || Rule == nullptr || Rule->MinigameClass == nullptr
+		|| !PartComponent.IsValid() || !PartComponent->NeedsRepair(InSlot))
 	{
 		CloseSession();
 		return;
 	}
 
-	TSubclassOf<UURGMinigameUI> SelectedClass = MinigameClass;
-	if (InSlot == EURGPartSlot::Leg)
-	{
-		SelectedClass = LegMinigameClass.Get();
-	}
-	else if (InSlot == EURGPartSlot::Core)
-	{
-		SelectedClass = CoreMinigameClass.Get();
-	}
-	else if (InSlot == EURGPartSlot::Head)
-	{
-		SelectedClass = HeadMinigameClass.Get();
-	}
-	if (SelectedClass == nullptr || !PartComponent.IsValid() || !PartComponent->NeedsRepair(InSlot))
+	// 되돌릴 수 없는 비용 차감은 실패할 수 있는 위젯 생성 뒤에 한다
+	UURGMinigameUI* NewMinigame = CreateWidget<UURGMinigameUI>(Controller, Rule->MinigameClass);
+	if (NewMinigame == nullptr)
 	{
 		CloseSession();
 		return;
@@ -137,26 +132,22 @@ void AURGRepairStation::HandleSlotSelected(EURGPartSlot InSlot)
 	}
 
 	TargetSlot = InSlot;
+	TargetRequiredScore = Rule->RequiredScore;
 
-	if (Menu)
+	if (Menu != nullptr)
 	{
 		Menu->RemoveFromParent();
 		Menu = nullptr;
 	}
 
-	Minigame = CreateWidget<UURGMinigameUI>(Controller, SelectedClass);
-	if (Minigame == nullptr)
-	{
-		CloseSession();
-		return;
-	}
-
+	Minigame = NewMinigame;
 	Minigame->OnFinished.AddUObject(this, &AURGRepairStation::HandleMinigameFinished);
 	Minigame->Start();
 
-	if (Minigame && Minigame->IsRunning())
+	// 미니게임은 Start 안에서 바로 끝날 수 있다 (용접 경로 데이터가 비었을 때 등). 그러면 HandleMinigameFinished가 이미 세션을 닫았다
+	if (Minigame != nullptr && Minigame->IsRunning())
 	{
-		FocusWidget(Minigame);
+		Controller->OpenModalWidget(Minigame);
 	}
 }
 
@@ -167,10 +158,8 @@ void AURGRepairStation::HandleMenuCancelled()
 
 void AURGRepairStation::HandleMinigameFinished(float InScore)
 {
-	// 부분 회복은 없다. 기준 점수를 넘겼을 때만 최대치까지 수리
-	const float SuccessScore = TargetSlot == EURGPartSlot::Head ? 1.0f
-		: (TargetSlot == EURGPartSlot::Leg ? LegRequiredScore : RequiredScore);
-	if (InScore >= SuccessScore)
+	// 부분 회복은 없다. 슬롯 기준 점수를 넘겼을 때만 최대치까지 수리
+	if (InScore >= TargetRequiredScore)
 	{
 		if (PartComponent.IsValid())
 		{
@@ -193,29 +182,27 @@ void AURGRepairStation::HandleMinigameFinished(float InScore)
 
 void AURGRepairStation::HandleInstigatorDeath()
 {
-	// 입력 모드는 컨트롤러가 게임오버용으로 바꾸므로 여기서 되돌리면 안 된다
-	CloseSession(false);
+	// 컨트롤러도 같은 OnDeath로 게임오버 입력을 걸고, 사망 뒤의 모달 닫기는 무시한다. 여기서는 세션만 닫으면 된다
+	CloseSession();
 }
 
-void AURGRepairStation::CloseSession(bool bInRestoreInput)
+void AURGRepairStation::CloseSession()
 {
-	if (Menu)
+	if (Menu != nullptr)
 	{
 		Menu->RemoveFromParent();
 		Menu = nullptr;
 	}
 
-	if (Minigame)
+	if (Minigame != nullptr)
 	{
 		Minigame->RemoveFromParent();
 		Minigame = nullptr;
 	}
 
-	APlayerController* Controller = PlayerController.Get();
-	if (bInRestoreInput && Controller != nullptr)
+	if (AURGPlayerController* Controller = PlayerController.Get())
 	{
-		Controller->SetInputMode(FInputModeGameOnly());
-		Controller->bShowMouseCursor = false;
+		Controller->CloseModalWidget();
 	}
 
 	if (AttributeComponent.IsValid())
@@ -229,18 +216,4 @@ void AURGRepairStation::CloseSession(bool bInRestoreInput)
 	ResourceComponent = nullptr;
 	AttributeComponent = nullptr;
 	bIsSessionOpen = false;
-}
-
-void AURGRepairStation::FocusWidget(UUserWidget* InWidget) const
-{
-	APlayerController* Controller = PlayerController.Get();
-	if (Controller == nullptr || InWidget == nullptr)
-	{
-		return;
-	}
-
-	FInputModeUIOnly InputMode;
-	InputMode.SetWidgetToFocus(InWidget->TakeWidget());
-	Controller->SetInputMode(InputMode);
-	Controller->bShowMouseCursor = true;
 }

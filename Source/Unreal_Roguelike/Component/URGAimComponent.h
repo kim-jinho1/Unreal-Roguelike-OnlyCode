@@ -70,6 +70,7 @@ private:
 	/** 카메라와 캐릭터 사이 거리(cm)가 이보다 가까우면 캐릭터를 숨긴다. 벽에 막혀 카메라가 등에 붙을 때 시야 확보용 */
 	UPROPERTY(EditAnywhere, Category = "Aim|Camera", meta = (ClampMin = "0"))
 	float HideCharacterDistance = 120.0f;
+
 	/** 제자리에서 몸통을 돌리기 시작하는 시점-몸통 Yaw 차이 (도) */
 	UPROPERTY(EditAnywhere, Category = "Aim|Rotation", meta = (ClampMin = "0", ClampMax = "90"))
 	float TurnInPlaceThreshold = 90.0f;
@@ -102,4 +103,5 @@ private:
 
 	/** 카메라 근접으로 캐릭터를 숨긴 상태인지 (상태가 바뀔 때만 가시성을 갱신하기 위해 기록) */
 	bool bIsCharacterHiddenByCamera = false;
+
 };

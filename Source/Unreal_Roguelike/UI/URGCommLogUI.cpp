@@ -21,9 +21,9 @@ void UURGCommLogUI::NativeDestruct()
 	Super::NativeDestruct();
 }
 
-void UURGCommLogUI::ShowMessage(const FText& InMessage, const float InDuration)
+void UURGCommLogUI::ShowMessage(const FText& InMessage, float InDuration)
 {
-	if (MessageText)
+	if (MessageText != nullptr)
 	{
 		MessageText->SetText(InMessage);
 	}

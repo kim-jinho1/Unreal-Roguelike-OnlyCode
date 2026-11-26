@@ -14,6 +14,10 @@ class UNREAL_ROGUELIKE_API UURGHealthBarUI : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	/** 체력 반영: 바·호 비율과 수치 텍스트를 함께 갱신한다 (최대 체력이 0이면 비율 0) */
+	void SetHealth(float InCurrent, float InMax) const;
+
+private:
 	/** 체력 바·호 비율 (0.0 ~ 1.0) */
 	void SetRatio(float InRatio) const;
 

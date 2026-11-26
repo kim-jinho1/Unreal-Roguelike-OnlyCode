@@ -2,13 +2,12 @@
 
 #include "CoreMinimal.h"
 #include "Equipment/URGEquipment.h"
-#include "GameplayTagContainer.h"
 #include "URGWeapon.generated.h"
 
 /**
  * 무기 베이스 (원거리/근접 공통).
  * 스폰·등록·제거는 소유자의 CombatComponent가 담당하고, 무기는 장착 시 캐릭터 메시 소켓에 부착된다.
- * 공격 몽타주와 데미지 계산(공격 타입 배율 × 팔 부품 손상 배율)을 담당하며, 실제 판정은 파생 클래스가 Attack()에서 구현한다.
+ * 공격 몽타주와 데미지 계산(기본 공격력 × 팔 부품 손상 배율)을 담당하며, 실제 판정은 파생 클래스가 Attack()에서 구현한다.
  * Howitzer처럼 캐릭터 메시에 포가 달린 경우 무기 메시는 비워 두고 소켓은 캐릭터 메시에서 가져온다.
  */
 UCLASS(Abstract)
@@ -25,7 +24,7 @@ public:
 
 public:
 	/** 공격 수행. 파생 클래스가 판정을 구현한다 */
-	virtual void Attack(FGameplayTag InAttackType);
+	virtual void Attack();
 
 	/** 무기 자체 조건으로 지금 공격할 수 있는지 (탄약 등). 캐릭터 상태는 캐릭터가 검사한다 */
 	virtual bool CanAttack() const;
@@ -36,7 +35,7 @@ public:
 	/** 재장전 (탄약을 쓰는 무기만 구현) */
 	virtual void Reload();
 
-	/** 이번 공격의 데미지를 굴린다 (연사는 RapidDamageScale, 팔 부품 배율·치명타는 CombatComponent). 호출마다 값이 다를 수 있다. 치명타였는지는 bOutCrit */
+	/** 이번 공격의 데미지를 굴린다 (BaseDamage에 팔 부품 배율·치명타는 CombatComponent가 적용). 호출마다 값이 다를 수 있다. 치명타였는지는 bOutCrit */
 	float RollAttackDamage(bool& bOutCrit) const;
 
 	FORCEINLINE class UAnimMontage* GetAttackMontage() const { return AttackMontage; }
@@ -44,9 +43,8 @@ public:
 
 	/** 재장전 몽타주 (탄약을 쓰는 무기만 제공, 없으면 nullptr → 캐릭터가 타이머로 대기) */
 	virtual class UAnimMontage* GetReloadMontage() const;
-	FORCEINLINE class UURGCombatComponent* GetCombatComponent() const { return CombatComponent; }
 
-	/** 소켓 월드 위치 (무기 메시 소켓 → 소유 캐릭터 메시 소켓 → 액터 위치 순으로 폴백) */
+	/** 소켓 월드 위치 (소유 캐릭터 메시 소켓, 없으면 액터 위치) */
 	FVector GetSocketLocationOrOwner(FName InSocketName) const;
 
 protected:
@@ -54,7 +52,7 @@ protected:
 	void GetOwnerViewPoint(FVector& OutLocation, FRotator& OutRotation) const;
 
 	/**
-	 * 명중 결과에 데미지 적용 (파생 클래스 공통). InDamage가 0 이하이면 현재 공격 타입의 데미지를 새로 굴린다 (이때 bInCrit은 무시)
+	 * 명중 결과에 데미지 적용 (파생 클래스 공통). InDamage가 0 이하이면 데미지를 새로 굴린다 (이때 bInCrit은 무시)
 	 * @return 살아 있는 캐릭터의 체력이 실제로 깎였는지 (벽·소품·시체면 false)
 	 */
 	bool ApplyDamageToHit(const FHitResult& InHit, const FVector& InDamageDirection, float InDamage = 0.0f, bool bInCrit = false);
@@ -80,11 +78,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon|Attack")
 	float BaseDamage = 15.0f;
 
-	/** 연사(Rapid) 공격 시 데미지 배율 */
-	UPROPERTY(EditAnywhere, Category = "Weapon|Attack")
-	float RapidDamageScale = 0.6f;
-
-	/** 공격 시작부터 다음 공격까지 최소 간격 (초). 단발·연사 모두 적용. 0이면 공격 모션과 연사 최소 간격만으로 제한 */
+	/** 공격 시작부터 다음 공격까지 최소 간격 (초). 0이면 공격 모션과 연사 최소 간격만으로 제한 */
 	UPROPERTY(EditAnywhere, Category = "Weapon|Attack", meta = (ClampMin = "0"))
 	float AttackCooldown = 0.0f;
 
@@ -104,9 +98,6 @@ protected:
 	/** 소유자의 전투 컴포넌트 (EquipItem 시점에 캐싱) */
 	UPROPERTY()
 	TObjectPtr<class UURGCombatComponent> CombatComponent;
-
-	/** 현재 진행 중인 공격 타입 (데미지 계산용) */
-	FGameplayTag CurrentAttackType;
 
 };
 

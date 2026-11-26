@@ -6,7 +6,7 @@
 
 /**
  * 적이 죽은 자리에 떨어지는 자원. 플레이어가 겹치면 ResourceComponent에 Amount를 더하고 사라진다.
- * 스폰되면 바로 아래 바닥으로 내려앉고, 제자리 회전 + 위아래로 둥실거린다.
+ * 스폰되면 바로 아래 바닥으로 내려앉고, 제자리 회전 + 위아래로 둥실거린다(MotionComponent).
  */
 UCLASS()
 class UNREAL_ROGUELIKE_API AURGResourcePickup : public AActor
@@ -19,9 +19,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-public:
-	virtual void Tick(float DeltaSeconds) override;
 
 protected:
 	/** 수집 범위에 들어온 액터에게 자원을 준다 */
@@ -46,6 +43,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "ResourcePickup|Mesh")
 	TObjectPtr<class UStaticMeshComponent> Mesh;
 
+	/** 제자리 회전·둥실거림 연출 */
+	UPROPERTY(VisibleAnywhere, Category = "ResourcePickup|Visual")
+	TObjectPtr<class UURGPickupMotionComponent> MotionComponent;
+
 	/** 주우면 더해지는 자원 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ResourcePickup|Resource", meta = (ClampMin = "1"))
 	int32 Amount = 10;
@@ -58,18 +59,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ResourcePickup|Visual", meta = (ClampMin = "0.0"))
 	float GroundTraceDistance = 500.0f;
 
-	/** 제자리 회전 속도 (도/초). 0이면 회전하지 않는다 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ResourcePickup|Visual")
-	float RotationSpeed = 90.0f;
-
-	/** 위아래로 둥실거리는 폭 (cm, 중심에서 한쪽). 0이면 움직이지 않는다 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ResourcePickup|Visual", meta = (ClampMin = "0.0"))
-	float BobHeight = 6.0f;
-
-	/** 둥실거림 속도 (초당 왕복 횟수) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ResourcePickup|Visual", meta = (ClampMin = "0.0"))
-	float BobFrequency = 0.6f;
-
 	/** 발광 색을 입힐 머티리얼 (벡터 파라미터 Color 필요). 없으면 메시 원래 머티리얼 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ResourcePickup|Visual")
 	TObjectPtr<class UMaterialInterface> PickupMaterial;
@@ -79,12 +68,6 @@ protected:
 	FLinearColor GlowColor = FLinearColor(1.0f, 0.75f, 0.0f);
 
 private:
-	/** 메시의 기준 상대 위치 (BP 값). 둥실거림은 여기에 더한다 */
-	FVector MeshBaseLocation = FVector::ZeroVector;
-
-	/** 둥실거림 경과 시간 (초) */
-	float BobTime = 0.0f;
-
 	/** 같은 프레임에 겹침이 두 번 들어와도 자원을 한 번만 주기 위한 기록 */
 	bool bCollected = false;
 

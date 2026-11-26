@@ -1,5 +1,6 @@
 #include "Equipment/URGPartPickup.h"
 #include "Component/URGPartComponent.h"
+#include "Component/URGPickupMotionComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -8,10 +9,22 @@
 #include "URGDefine.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
+namespace
+{
+	/** 부품 픽업 제자리 회전 속도 (도/초) */
+	constexpr float PartPickupRotationSpeed = 60.0f;
+
+	/** 부품 픽업 둥실거림 폭 (cm) */
+	constexpr float PartPickupBobHeight = 8.0f;
+
+	/** 부품 픽업 둥실거림 속도 (초당 왕복 횟수) */
+	constexpr float PartPickupBobFrequency = 0.5f;
+}
+
 AURGPartPickup::AURGPartPickup()
 {
-	// 회전·둥실거림 연출에 매 프레임 갱신이 필요하다
-	PrimaryActorTick.bCanEverTick = true;
+	// 회전·둥실거림은 MotionComponent가 Tick하므로 액터 자체는 매 프레임 갱신할 일이 없다
+	PrimaryActorTick.bCanEverTick = false;
 
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	SetRootComponent(Root);
@@ -24,6 +37,9 @@ AURGPartPickup::AURGPartPickup()
 	Mesh->SetCollisionObjectType(ECC_WorldDynamic);
 	Mesh->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Mesh->SetCollisionResponseToChannel(ECC_InteractTrace, ECR_Block);
+
+	MotionComponent = CreateDefaultSubobject<UURGPickupMotionComponent>(TEXT("Motion"));
+	MotionComponent->SetMotionDefaults(PartPickupRotationSpeed, PartPickupBobHeight, PartPickupBobFrequency);
 }
 
 void AURGPartPickup::OnConstruction(const FTransform& Transform)
@@ -31,24 +47,6 @@ void AURGPartPickup::OnConstruction(const FTransform& Transform)
 	Super::OnConstruction(Transform);
 
 	ApplyPartMesh();
-}
-
-void AURGPartPickup::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-
-	if (RotationSpeed != 0.0f)
-	{
-		AddActorLocalRotation(FRotator(0.0f, RotationSpeed * DeltaSeconds, 0.0f));
-	}
-
-	// 액터는 세로축으로만 돌고, 둥실거림은 메시의 상대 위치로 준다 (액터 위치는 그대로 둬야 상호작용 거리가 흔들리지 않는다)
-	if (BobHeight > 0.0f && BobFrequency > 0.0f)
-	{
-		BobTime += DeltaSeconds;
-		const float BobOffset = FMath::Sin(BobTime * BobFrequency * UE_TWO_PI) * BobHeight;
-		Mesh->SetRelativeLocation(MeshBaseLocation + FVector(0.0f, 0.0f, BobOffset));
-	}
 }
 
 void AURGPartPickup::SetPart(UURGPartDataAsset* InPart)
@@ -59,7 +57,7 @@ void AURGPartPickup::SetPart(UURGPartDataAsset* InPart)
 
 void AURGPartPickup::Interact_Implementation(AActor* InInstigator)
 {
-	UURGPartComponent* PartComponent = InInstigator ? InInstigator->FindComponentByClass<UURGPartComponent>() : nullptr;
+	UURGPartComponent* PartComponent = InInstigator != nullptr ? InInstigator->FindComponentByClass<UURGPartComponent>() : nullptr;
 	if (Part == nullptr || PartComponent == nullptr)
 	{
 		return;
@@ -70,7 +68,7 @@ void AURGPartPickup::Interact_Implementation(AActor* InInstigator)
 
 	PartComponent->EquipPart(Part);
 
-	if (PreviousPart)
+	if (PreviousPart != nullptr)
 	{
 		if (UWorld* World = GetWorld())
 		{
@@ -89,12 +87,12 @@ void AURGPartPickup::Interact_Implementation(AActor* InInstigator)
 
 FText AURGPartPickup::GetInteractText_Implementation() const
 {
-	return Part ? FText::Format(InteractTextFormat, Part->GetDisplayName()) : FText::GetEmpty();
+	return Part != nullptr ? FText::Format(InteractTextFormat, Part->GetDisplayName()) : FText::GetEmpty();
 }
 
 bool AURGPartPickup::CanInteract_Implementation(AActor* InInstigator) const
 {
-	return Part != nullptr && InInstigator && InInstigator->FindComponentByClass<UURGPartComponent>() != nullptr;
+	return Part != nullptr && InInstigator != nullptr && InInstigator->FindComponentByClass<UURGPartComponent>() != nullptr;
 }
 
 void AURGPartPickup::ApplyPartMesh()
@@ -104,8 +102,8 @@ void AURGPartPickup::ApplyPartMesh()
 		return;
 	}
 
-	UStaticMesh* PartMesh = Part ? Part->GetPickupMesh() : nullptr;
-	UStaticMesh* AppliedMesh = PartMesh ? PartMesh : DefaultMesh.Get();
+	UStaticMesh* PartMesh = Part != nullptr ? Part->GetPickupMesh() : nullptr;
+	UStaticMesh* AppliedMesh = PartMesh != nullptr ? PartMesh : DefaultMesh.Get();
 	Mesh->SetStaticMesh(AppliedMesh);
 
 	if (AppliedMesh == nullptr)
@@ -122,11 +120,17 @@ void AURGPartPickup::ApplyPartMesh()
 	// 메시 원점이 바운즈 중심과 다르면 액터가 돌 때 메시가 큰 원을 그린다.
 	// 기울기·스케일을 적용한 중심만큼 반대로 옮겨 바운즈 중심이 회전축(액터 원점) 위에 오게 한다.
 	const FVector ScaledCenter = PickupTilt.RotateVector(MeshBounds.Origin * Scale);
-	MeshBaseLocation = FVector(0.0f, 0.0f, HoverHeight) - ScaledCenter;
+	const FVector MeshBaseLocation = FVector(0.0f, 0.0f, HoverHeight) - ScaledCenter;
 
 	Mesh->SetRelativeScale3D(FVector(Scale));
 	Mesh->SetRelativeRotation(PickupTilt);
 	Mesh->SetRelativeLocation(MeshBaseLocation);
+
+	// 둥실거림은 이 기준 위치에 높이만 더한다 (메시가 바뀌면 기준도 바뀌므로 매번 다시 넘긴다)
+	if (MotionComponent != nullptr)
+	{
+		MotionComponent->SetBobTarget(Mesh, MeshBaseLocation);
+	}
 
 	ApplySlotColor();
 }

@@ -28,6 +28,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	FORCEINLINE float GetCurrentHealth() const { return CurrentHealth; }
@@ -75,7 +76,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attribute|Health")
 	float CurrentHealth = 0.0f;
 
-	/** 사망 상태 플래그 (OnDeath 중복 방송 방지) */
+	/** 사망 기록. 최대 체력 변경·복원 함수는 사망 여부를 보지 않고 체력을 올리므로, 체력만 보면 죽은 뒤 되살아나 피해와 OnDeath를 다시 받을 수 있다 */
 	bool bIsDead = false;
 
 	/** 마지막 데미지의 가해자 (HandleTakeAnyDamage에서 갱신) */

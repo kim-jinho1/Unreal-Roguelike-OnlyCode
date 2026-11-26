@@ -19,7 +19,7 @@ public:
 
 public:
 	/** APawn::SetupPlayerInputComponent에서 호출 — Enhanced Input 액션을 소유 캐릭터에 바인딩 */
-	void BindInputActions(class UInputComponent* PlayerInputComponent);
+	void BindInputActions(class UInputComponent* InPlayerInputComponent);
 
 	/** NotifyControllerChanged에서 호출 — 로컬 플레이어에 기본 매핑 컨텍스트를 추가 */
 	void AddMappingContext();

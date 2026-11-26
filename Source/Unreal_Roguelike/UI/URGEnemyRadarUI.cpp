@@ -7,7 +7,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 
-void UURGEnemyRadarUI::NativeTick(const FGeometry& MyGeometry, const float InDeltaTime)
+void UURGEnemyRadarUI::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
@@ -37,7 +37,7 @@ void UURGEnemyRadarUI::SetTargets(const TArray<FVector>& InTargets)
 	}
 }
 
-void UURGEnemyRadarUI::EnsureMarkers(const int32 InCount)
+void UURGEnemyRadarUI::EnsureMarkers(int32 InCount)
 {
 	if (MarkerCanvas == nullptr || WidgetTree == nullptr)
 	{
@@ -47,7 +47,7 @@ void UURGEnemyRadarUI::EnsureMarkers(const int32 InCount)
 	while (Markers.Num() < InCount)
 	{
 		UImage* Marker = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass());
-		if (MarkerTexture)
+		if (MarkerTexture != nullptr)
 		{
 			Marker->SetBrushFromTexture(MarkerTexture);
 		}

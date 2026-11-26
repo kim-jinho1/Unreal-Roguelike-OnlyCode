@@ -1,19 +1,21 @@
 #include "Component/URGPartComponent.h"
 #include "Equipment/URGPartDataAsset.h"
-#include "GameplayTagContainer.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/HitResult.h"
 
 FText FURGPartSlotState::GetDisplayName() const
 {
-	return Part ? Part->GetDisplayName() : FText::GetEmpty();
+	return Part != nullptr ? Part->GetDisplayName() : FText::GetEmpty();
 }
 
 UTexture2D* FURGPartSlotState::GetIcon() const
 {
-	return Part ? Part->GetIcon() : nullptr;
+	return Part != nullptr ? Part->GetIcon() : nullptr;
 }
 
 UURGPartComponent::UURGPartComponent()
 {
+	// 장착·피격·수리·복원 때만 상태가 바뀌고 델리게이트로 알리므로 Tick은 필요하지 않다.
 	PrimaryComponentTick.bCanEverTick = false;
 
 	// 슬롯 4개는 항상 존재한다 (빈 슬롯도 HUD에 표시)
@@ -33,21 +35,21 @@ void UURGPartComponent::BeginPlay()
 	}
 }
 
-const FURGPartSlotState& UURGPartComponent::GetSlotState(const EURGPartSlot InSlot) const
+const FURGPartSlotState& UURGPartComponent::GetSlotState(EURGPartSlot InSlot) const
 {
 	static const FURGPartSlotState EmptyState;
 
 	const FURGPartSlotState* State = Slots.Find(InSlot);
-	return State ? *State : EmptyState;
+	return State != nullptr ? *State : EmptyState;
 }
 
-bool UURGPartComponent::IsSlotUsable(const EURGPartSlot InSlot) const
+bool UURGPartComponent::IsSlotUsable(EURGPartSlot InSlot) const
 {
 	const FURGPartSlotState& State = GetSlotState(InSlot);
 	return State.IsEquipped() && State.Condition != EURGPartCondition::Broken;
 }
 
-float UURGPartComponent::GetConditionScale(const EURGPartSlot InSlot) const
+float UURGPartComponent::GetConditionScale(EURGPartSlot InSlot) const
 {
 	const FURGPartSlotState& State = GetSlotState(InSlot);
 	if (!State.IsEquipped())
@@ -90,13 +92,13 @@ void UURGPartComponent::RestoreSlots(const TMap<EURGPartSlot, FURGPartSlotState>
 	for (const EURGPartSlot Slot : AllSlots)
 	{
 		const FURGPartSlotState* Saved = InSlots.Find(Slot);
-		Slots.FindOrAdd(Slot) = Saved ? *Saved : FURGPartSlotState();
+		Slots.FindOrAdd(Slot) = Saved != nullptr ? *Saved : FURGPartSlotState();
 
 		NotifySlotChanged(Slot);
 	}
 }
 
-void UURGPartComponent::UnequipPart(const EURGPartSlot InSlot)
+void UURGPartComponent::UnequipPart(EURGPartSlot InSlot)
 {
 	Slots.FindOrAdd(InSlot) = FURGPartSlotState();
 
@@ -157,7 +159,7 @@ bool UURGPartComponent::NeedsRepair(EURGPartSlot InSlot) const
 	return State.IsEquipped() && State.Durability < State.Part->GetMaxDurability();
 }
 
-void UURGPartComponent::SetSlotCondition(const EURGPartSlot InSlot, const EURGPartCondition InCondition)
+void UURGPartComponent::SetSlotCondition(EURGPartSlot InSlot, EURGPartCondition InCondition)
 {
 	FURGPartSlotState& State = Slots.FindOrAdd(InSlot);
 	if (!State.IsEquipped() || State.Condition == InCondition)
@@ -171,10 +173,30 @@ void UURGPartComponent::SetSlotCondition(const EURGPartSlot InSlot, const EURGPa
 
 int32 UURGPartComponent::GetSynergyTagCount(const FGameplayTag& InTag) const
 {
+	return CountSynergyTag(InTag, nullptr);
+}
+
+bool UURGPartComponent::IsSynergyActiveWithPart(const FGameplayTag& InTag, const UURGPartDataAsset* InPart) const
+{
+	return CountSynergyTag(InTag, InPart) >= SynergyThreshold;
+}
+
+int32 UURGPartComponent::CountSynergyTag(const FGameplayTag& InTag, const UURGPartDataAsset* InReplacePart) const
+{
+	// 새 부품이 들어갈 슬롯의 기존 부품은 빼고, 새 부품은 정상 상태로 들어오므로 그대로 센다
 	int32 Count = 0;
+	if (InReplacePart != nullptr && InReplacePart->GetSynergyTags().HasTagExact(InTag))
+	{
+		++Count;
+	}
 
 	for (const TPair<EURGPartSlot, FURGPartSlotState>& Pair : Slots)
 	{
+		if (InReplacePart != nullptr && Pair.Key == InReplacePart->GetSlot())
+		{
+			continue;
+		}
+
 		// 파손 부품은 기능이 멈춘 것이므로 시너지에도 들어가지 않는다
 		if (!IsSlotUsable(Pair.Key))
 		{
@@ -191,40 +213,75 @@ int32 UURGPartComponent::GetSynergyTagCount(const FGameplayTag& InTag) const
 	return Count;
 }
 
-bool UURGPartComponent::IsSynergyActive(const FGameplayTag& InTag) const
+bool UURGPartComponent::ResolveSlotFromHit(const FHitResult& InHit, const USkeletalMeshComponent* InMesh, EURGPartSlot& OutSlot) const
 {
-	return GetSynergyTagCount(InTag) >= SynergyThreshold;
-}
-
-bool UURGPartComponent::IsSynergyActiveWithPart(const FGameplayTag& InTag, const UURGPartDataAsset* InPart) const
-{
-	if (InPart == nullptr)
+	if (InMesh == nullptr)
 	{
-		return IsSynergyActive(InTag);
+		return false;
 	}
 
-	// 새 부품이 들어갈 슬롯의 기존 부품은 빼고, 새 부품은 정상 상태로 들어오므로 그대로 센다
-	const EURGPartSlot TargetSlot = InPart->GetSlot();
-	int32 Count = InPart->GetSynergyTags().HasTagExact(InTag) ? 1 : 0;
+	FName Bone = InHit.BoneName;
 
+	// 캡슐에 맞으면 뼈 이름이 비어 오므로 충돌점에서 가장 가까운 바디 뼈로 대신한다.
+	if (Bone.IsNone())
+	{
+		Bone = InMesh->FindClosestBone(InHit.ImpactPoint, nullptr, 0.0f, /*bRequirePhysicalAsset*/ true);
+	}
+
+	while (!Bone.IsNone())
+	{
+		if (const EURGPartSlot* Found = HitBoneSlotMap.Find(Bone))
+		{
+			OutSlot = *Found;
+			return true;
+		}
+
+		Bone = InMesh->GetParentBone(Bone);
+	}
+
+	return false;
+}
+
+void UURGPartComponent::NotifySlotChanged(EURGPartSlot InSlot)
+{
+	// 시너지 후보: 지금 쓸 수 있는 부품의 태그 + 이미 켜져 있던 태그 (꺼지는 것도 잡아야 한다)
+	FGameplayTagContainer Candidates = ActiveSynergies;
 	for (const TPair<EURGPartSlot, FURGPartSlotState>& Pair : Slots)
 	{
-		if (Pair.Key == TargetSlot || !IsSlotUsable(Pair.Key))
+		if (IsSlotUsable(Pair.Key))
+		{
+			Candidates.AppendTags(Pair.Value.Part->GetSynergyTags());
+		}
+	}
+
+	// 기록부터 고친다. 슬롯 핸들러(HUD 태그 색 등)가 이 기록을 읽기 때문
+	TArray<TPair<FGameplayTag, bool>> ChangedSynergies;
+	for (const FGameplayTag& Tag : Candidates)
+	{
+		const bool bActive = CountSynergyTag(Tag, nullptr) >= SynergyThreshold;
+		if (ActiveSynergies.HasTagExact(Tag) == bActive)
 		{
 			continue;
 		}
 
-		if (Pair.Value.Part->GetSynergyTags().HasTagExact(InTag))
+		if (bActive)
 		{
-			++Count;
+			ActiveSynergies.AddTag(Tag);
 		}
+		else
+		{
+			ActiveSynergies.RemoveTag(Tag);
+		}
+
+		ChangedSynergies.Emplace(Tag, bActive);
 	}
 
-	return Count >= SynergyThreshold;
-}
-
-void UURGPartComponent::NotifySlotChanged(const EURGPartSlot InSlot) const
-{
 	OnSlotChanged.Broadcast(InSlot, GetSlotState(InSlot));
+
+	// 켜지고 꺼진 순간만 알린다 (HUD 문구가 반복되지 않고, 받는 쪽이 더하고 빼기를 짝 맞춰 할 수 있도록)
+	for (const TPair<FGameplayTag, bool>& Changed : ChangedSynergies)
+	{
+		OnSynergyChanged.Broadcast(Changed.Key, Changed.Value);
+	}
 }
 

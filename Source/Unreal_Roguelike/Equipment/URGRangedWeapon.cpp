@@ -27,7 +27,7 @@ void AURGRangedWeapon::PostInitializeComponents()
 	CurrentAmmo = MagazineSize;
 }
 
-void AURGRangedWeapon::Attack(const FGameplayTag InAttackType)
+void AURGRangedWeapon::Attack()
 {
 	if (!CanAttack())
 	{
@@ -40,12 +40,12 @@ void AURGRangedWeapon::Attack(const FGameplayTag InAttackType)
 		return;
 	}
 
-	Super::Attack(InAttackType);
+	Super::Attack();
 
 	--CurrentAmmo;
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 
-	if (FireSound)
+	if (FireSound != nullptr)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetMuzzleLocation(), 1.0f, FMath::FRandRange(1.0f - FireSoundPitchJitter, 1.0f + FireSoundPitchJitter));
 	}
@@ -58,7 +58,7 @@ void AURGRangedWeapon::Attack(const FGameplayTag InAttackType)
 	const FVector AimDirection = ViewRotation.Vector();
 
 	// 머즐 파티클은 이번 공격에 쓰이는 머즐마다 한 번씩 (탄이 머즐 수보다 많아도 중복 스폰하지 않는다)
-	if (MuzzleFX)
+	if (MuzzleFX != nullptr)
 	{
 		const int32 MuzzleCount = FMath::Min(ShotCount, FMath::Max(MuzzleSocketNames.Num(), 1));
 		for (int32 MuzzleIndex = 0; MuzzleIndex < MuzzleCount; ++MuzzleIndex)
@@ -119,12 +119,12 @@ void AURGRangedWeapon::FireShot(const FVector& InTraceStart, const FVector& InDi
 	const FVector BulletEnd = bHit ? Hit.ImpactPoint : TraceEnd;
 	const FRotator BulletRotation = (BulletEnd - InMuzzleLocation).Rotation();
 
-	// 데미지는 발사 시점 값으로 고정 (총알 비행 중 공격 타입·부품 상태가 바뀌어도 이 탄에는 영향 없음)
+	// 데미지는 발사 시점 값으로 고정 (총알 비행 중 부품 상태가 바뀌어도 이 탄에는 영향 없음)
 	bool bShotCrit = false;
 	const float ShotDamage = RollAttackDamage(bShotCrit);
 
 	// 코스메틱 총알(트레이서) 발사 — 착탄 연출과 데미지 모두 총알이 명중 지점에 도착한 시점에 처리
-	if (BulletClass)
+	if (BulletClass != nullptr)
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -157,7 +157,7 @@ void AURGRangedWeapon::FireShot(const FVector& InTraceStart, const FVector& InDi
 	}
 }
 
-void AURGRangedWeapon::ApplyShotDamage(const FHitResult& InHit, const float InDamage, const bool bInCrit)
+void AURGRangedWeapon::ApplyShotDamage(const FHitResult& InHit, float InDamage, bool bInCrit)
 {
 	if (ExplosionRadius <= 0.0f)
 	{
@@ -239,7 +239,7 @@ void AURGRangedWeapon::Reload()
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
 }
 
-void AURGRangedWeapon::RestoreAmmo(const int32 InAmmo)
+void AURGRangedWeapon::RestoreAmmo(int32 InAmmo)
 {
 	CurrentAmmo = FMath::Clamp(InAmmo, 0, MagazineSize);
 	OnAmmoChanged.Broadcast(CurrentAmmo, MagazineSize);
@@ -255,7 +255,7 @@ UAnimMontage* AURGRangedWeapon::GetReloadMontage() const
 	return ReloadMontage;
 }
 
-FVector AURGRangedWeapon::GetMuzzleLocation(const int32 InShotIndex) const
+FVector AURGRangedWeapon::GetMuzzleLocation(int32 InShotIndex) const
 {
 	if (MuzzleSocketNames.IsEmpty())
 	{

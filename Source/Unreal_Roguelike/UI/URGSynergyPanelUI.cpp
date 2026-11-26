@@ -52,7 +52,7 @@ void UURGSynergyPanelUI::RefreshPanelVisibility()
 	bool bAnyVisible = false;
 	for (const UTextBlock* Row : Rows)
 	{
-		if (Row && Row->GetVisibility() != ESlateVisibility::Collapsed)
+		if (Row != nullptr && Row->GetVisibility() != ESlateVisibility::Collapsed)
 		{
 			bAnyVisible = true;
 			break;

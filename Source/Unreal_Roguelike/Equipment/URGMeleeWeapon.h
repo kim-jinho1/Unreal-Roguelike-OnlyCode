@@ -6,8 +6,9 @@
 
 /**
  * 근접 무기.
- * 공격 몽타주의 URGMeleeTrace 노티파이 구간 동안 판정 소켓의 이동 궤적을 구체로 스윕해
- * WeaponTrace 채널에 걸리는 액터에 한 번씩 데미지를 적용한다. 판정 시작/갱신/종료는 노티파이가 호출한다.
+ * 공격 몽타주의 URGMeleeTrace 노티파이 구간 동안 판정 소켓의 이동 궤적을 세로 캡슐로 스윕해
+ * WeaponTrace 채널에 걸리는 액터에 한 번씩 데미지를 적용한다. 판정 시작/종료는 노티파이가 호출하고,
+ * 그 사이 매 프레임 스윕은 이 무기가 판정 구간 동안만 켜는 Tick에서 한다.
  */
 UCLASS()
 class UNREAL_ROGUELIKE_API AURGMeleeWeapon : public AURGWeapon
@@ -17,27 +18,28 @@ class UNREAL_ROGUELIKE_API AURGMeleeWeapon : public AURGWeapon
 public:
 	AURGMeleeWeapon();
 
+	/** 판정 구간 동안만 켜진다: 지난 프레임 소켓 위치 → 지금 위치 스윕 */
+	virtual void Tick(float DeltaSeconds) override;
+
 protected:
 	/** 히트스톱 도중 무기가 제거되면(무기 교체·소유자 사망) 늦춰 둔 시간 배율을 되돌린다 */
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
-	/** 공격 타입을 기록하고 휘두름 소리를 재생한다. 판정은 노티파이 구간에서 수행 */
-	virtual void Attack(FGameplayTag InAttackType) override;
+	/** 휘두름 소리를 재생한다. 판정은 노티파이 구간에서 수행 */
+	virtual void Attack() override;
 
 public:
-	/** 판정 시작 (노티파이 Begin): 명중 목록 초기화, 소켓 현재 위치 기록 */
+	/** 판정 시작 (노티파이 Begin): 명중 목록 초기화, 소켓 현재 위치 기록, Tick 켜기 */
 	void BeginTrace();
 
-	/** 판정 갱신 (노티파이 Tick): 지난 위치 → 현재 위치 구체 스윕 */
-	void UpdateTrace();
-
-	/** 판정 종료 (노티파이 End) */
+	/** 판정 종료 (노티파이 End): Tick 끄기 */
 	void EndTrace();
 
-	FORCEINLINE bool IsTracing() const { return bIsTracing; }
-
 protected:
+	/** 판정 갱신 (Tick): 지난 위치 → 현재 위치 세로 캡슐 스윕 */
+	void UpdateTrace();
+
 	/** 스윕 결과 중 아직 맞지 않은 액터에 데미지·연출 적용 */
 	void ProcessHit(const FHitResult& InHit, const FVector& InSweepDirection);
 
@@ -51,9 +53,13 @@ protected:
 	void EndHitStop();
 
 protected:
-	/** 판정 구체 반지름 (cm) */
+	/** 판정 캡슐 반지름 (cm). 휘두르는 방향의 판정 폭 */
 	UPROPERTY(EditAnywhere, Category = "MeleeWeapon|Trace", meta = (ClampMin = "1"))
 	float TraceRadius = 40.0f;
+
+	/** 판정 캡슐 반높이 (cm, 반구 포함). 캡슐 윗부분이 소켓에 걸리도록 소켓 아래로 매단다. 손이 높이 지나가도 그 아래 작은 적까지 맞도록 */
+	UPROPERTY(EditAnywhere, Category = "MeleeWeapon|Trace", meta = (ClampMin = "1"))
+	float TraceHalfHeight = 150.0f;
 
 	/** 판정 소켓 이름 (무기 메시 또는 소유 캐릭터 메시) */
 	UPROPERTY(EditAnywhere, Category = "MeleeWeapon|Trace")

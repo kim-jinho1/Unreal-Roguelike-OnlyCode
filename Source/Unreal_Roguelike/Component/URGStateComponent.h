@@ -2,9 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Engine/EngineTypes.h"
 #include "GameplayTagContainer.h"
-#include "URGGameplayTags.h"
 #include "URGStateComponent.generated.h"
 
 /**
@@ -21,19 +19,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	/** 현재 상태 설정. 사망 상태는 덮어쓸 수 없다 */
-	FORCEINLINE void SetCurrentState(const FGameplayTag NewState)
-	{
-		if (CurrentState == URGGameplayTags::Character_State_Death)
-		{
-			return;
-		}
-
-		CurrentState = NewState;
-	}
+	void SetCurrentState(const FGameplayTag& InNewState);
 
 	FORCEINLINE FGameplayTag GetCurrentState() const { return CurrentState; }
 
@@ -47,13 +36,10 @@ public:
 	bool IsCurrentStateEqualTo(const FGameplayTag& TagToCheck) const;
 
 public:
-	FORCEINLINE bool MovementInputEnabled() const { return bMovementInputEnabled; }
+	FORCEINLINE bool IsMovementInputEnabled() const { return bMovementInputEnabled; }
 
-	/** 이동 입력 토글 */
-	void ToggleMovementInput(bool bEnabled, float Duration = 0.f);
-
-	/** 이동 입력 해제 + 상태 초기화 (타이머 콜백) */
-	void MovementInputEnableAction();
+	/** 이동 입력 잠금/해제. 현재 상태는 건드리지 않는다 (언제 풀지는 잠근 쪽이 정한다) */
+	void SetMovementInputEnabled(bool bInEnabled);
 
 protected:
 	/** 캐릭터의 현재 상태 */
@@ -63,8 +49,5 @@ protected:
 	/** 이동키 입력 가능 여부 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State|Runtime")
 	bool bMovementInputEnabled = true;
-
-	/** 이동 입력 잠금 해제 예약 타이머 핸들 */
-	FTimerHandle MovementUnlockTimer;
 
 };

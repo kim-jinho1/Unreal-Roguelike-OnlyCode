@@ -13,9 +13,9 @@ UURGPlayerInputComponent::UURGPlayerInputComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UURGPlayerInputComponent::BindInputActions(UInputComponent* PlayerInputComponent)
+void UURGPlayerInputComponent::BindInputActions(UInputComponent* InPlayerInputComponent)
 {
-	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InPlayerInputComponent);
 	AURGPlayerCharacter* Character = Cast<AURGPlayerCharacter>(GetOwner());
 
 	if (EnhancedInputComponent == nullptr || Character == nullptr)
@@ -32,9 +32,8 @@ void UURGPlayerInputComponent::BindInputActions(UInputComponent* PlayerInputComp
 
 	EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, Character, &AURGPlayerCharacter::Input_Dash);
 
-	// Combat
-	EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, Character, &AURGPlayerCharacter::Input_SingleAttack);
-	EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, Character, &AURGPlayerCharacter::Input_RapidAttack);
+	// Combat: 누르고 있는 동안 매 프레임 시도한다. 클릭이든 홀드든 발사 간격은 CombatComponent가 제한한다
+	EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, Character, &AURGPlayerCharacter::Input_Attack);
 
 	EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Started, Character, &AURGPlayerCharacter::Input_Aim);
 	EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, Character, &AURGPlayerCharacter::Input_StopAim);
@@ -62,7 +61,7 @@ void UURGPlayerInputComponent::AddMappingContext()
 	}
 
 	auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
-	if (Subsystem)
+	if (Subsystem != nullptr)
 	{
 		Subsystem->AddMappingContext(DefaultMappingContext, 0);
 	}

@@ -14,6 +14,17 @@ namespace
 
 AURGMeleeWeapon::AURGMeleeWeapon()
 {
+	// 판정 구간(BeginTrace~EndTrace)에만 켠다. 캐릭터 포즈 계산이 끝난 뒤의 소켓 위치를 읽도록 프레임 마지막 그룹에서 돈다
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
+}
+
+void AURGMeleeWeapon::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	UpdateTrace();
 }
 
 void AURGMeleeWeapon::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -27,11 +38,11 @@ void AURGMeleeWeapon::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-void AURGMeleeWeapon::Attack(const FGameplayTag InAttackType)
+void AURGMeleeWeapon::Attack()
 {
-	Super::Attack(InAttackType);
+	Super::Attack();
 
-	if (SwingSound)
+	if (SwingSound != nullptr)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, SwingSound, GetTraceLocation(), 1.0f, FMath::FRandRange(1.0f - SoundPitchJitter, 1.0f + SoundPitchJitter));
 	}
@@ -42,6 +53,7 @@ void AURGMeleeWeapon::BeginTrace()
 	HitActors.Reset();
 	LastTraceLocation = GetTraceLocation();
 	bIsTracing = true;
+	SetActorTickEnabled(true);
 }
 
 void AURGMeleeWeapon::UpdateTrace()
@@ -58,16 +70,21 @@ void AURGMeleeWeapon::UpdateTrace()
 		return;
 	}
 
-	const FVector Start = LastTraceLocation;
-	const FVector End = GetTraceLocation();
-	LastTraceLocation = End;
+	// 큰 기체의 손은 작은 적의 머리 위로 지나가므로, 세로 캡슐을 윗반구가 소켓에 걸리게 아래로 매달아 손부터 그 아래까지 훑는다
+	const float HalfHeight = FMath::Max(TraceHalfHeight, TraceRadius);
+	const FVector HangOffset(0.0f, 0.0f, TraceRadius - HalfHeight);
+
+	const FVector Start = LastTraceLocation + HangOffset;
+	const FVector End = GetTraceLocation() + HangOffset;
+	LastTraceLocation = End - HangOffset;
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(MeleeTrace), false);
 	Params.AddIgnoredActor(this);
 	Params.AddIgnoredActor(OwnerActor);
 
+	// 회전 없음 = 캡슐 축이 월드 Z
 	TArray<FHitResult> Hits;
-	World->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WeaponTrace, FCollisionShape::MakeSphere(TraceRadius), Params);
+	World->SweepMultiByChannel(Hits, Start, End, FQuat::Identity, ECC_WeaponTrace, FCollisionShape::MakeCapsule(TraceRadius, HalfHeight), Params);
 
 	// 소켓이 제자리면 스윕 방향이 없으므로 캐릭터 전방을 데미지 방향으로 쓴다
 	FVector SweepDirection = (End - Start).GetSafeNormal();
@@ -86,6 +103,7 @@ void AURGMeleeWeapon::EndTrace()
 {
 	bIsTracing = false;
 	HitActors.Reset();
+	SetActorTickEnabled(false);
 }
 
 void AURGMeleeWeapon::ProcessHit(const FHitResult& InHit, const FVector& InSweepDirection)
@@ -98,12 +116,12 @@ void AURGMeleeWeapon::ProcessHit(const FHitResult& InHit, const FVector& InSweep
 
 	HitActors.Add(HitActor);
 
-	if (HitFX)
+	if (HitFX != nullptr)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(this, HitFX, InHit.ImpactPoint, InHit.ImpactNormal.Rotation(), FVector(HitFXScale));
 	}
 
-	if (HitSound)
+	if (HitSound != nullptr)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, HitSound, InHit.ImpactPoint, 1.0f, FMath::FRandRange(1.0f - SoundPitchJitter, 1.0f + SoundPitchJitter));
 	}
@@ -153,14 +171,14 @@ void AURGMeleeWeapon::StartHitStop(AActor* InTarget)
 	Freeze(OwnerActor);
 
 	// 이번 타격에 죽은 적은 곧 사라지므로 멈추지 않는다
-	if (InTarget && GetAliveHealth(InTarget) >= 0.0f)
+	if (InTarget != nullptr && GetAliveHealth(InTarget) >= 0.0f)
 	{
 		Freeze(InTarget);
 	}
 
 	// 타이머는 전역 시간 배율(시간 감속 코어)만큼 느리게 흐르므로 곱해서 실제 초로 맞춘다
 	const AWorldSettings* WorldSettings = World->GetWorldSettings();
-	const float GlobalDilation = WorldSettings ? WorldSettings->GetEffectiveTimeDilation() : 1.0f;
+	const float GlobalDilation = WorldSettings != nullptr ? WorldSettings->GetEffectiveTimeDilation() : 1.0f;
 	World->GetTimerManager().SetTimer(HitStopTimerHandle, this, &AURGMeleeWeapon::EndHitStop, HitStopDuration * GlobalDilation, false);
 }
 

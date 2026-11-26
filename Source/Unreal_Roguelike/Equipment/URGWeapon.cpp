@@ -3,9 +3,7 @@
 #include "Component/URGAttributeComponent.h"
 #include "Component/URGCombatComponent.h"
 #include "Equipment/URGWeaponCameraShake.h"
-#include "URGGameplayTags.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Components/StaticMeshComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/PlayerController.h"
@@ -40,9 +38,8 @@ void AURGWeapon::UnequipItem()
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 }
 
-void AURGWeapon::Attack(const FGameplayTag InAttackType)
+void AURGWeapon::Attack()
 {
-	CurrentAttackType = InAttackType;
 }
 
 bool AURGWeapon::CanAttack() const
@@ -69,13 +66,8 @@ float AURGWeapon::RollAttackDamage(bool& bOutCrit) const
 	bOutCrit = false;
 	float Damage = BaseDamage;
 
-	if (CurrentAttackType == URGGameplayTags::Character_Attack_Rapid)
-	{
-		Damage *= RapidDamageScale;
-	}
-
 	// 팔 부품 배율과 머리 부품 치명타는 CombatComponent가 한 번에 적용한다
-	if (CombatComponent)
+	if (CombatComponent != nullptr)
 	{
 		Damage = CombatComponent->ModifyOutgoingDamage(Damage, bOutCrit);
 	}
@@ -83,25 +75,19 @@ float AURGWeapon::RollAttackDamage(bool& bOutCrit) const
 	return Damage;
 }
 
-FVector AURGWeapon::GetSocketLocationOrOwner(const FName InSocketName) const
+FVector AURGWeapon::GetSocketLocationOrOwner(FName InSocketName) const
 {
-	// 1) 무기 메시 소켓
-	if (Mesh && Mesh->GetStaticMesh() && Mesh->DoesSocketExist(InSocketName))
-	{
-		return Mesh->GetSocketLocation(InSocketName);
-	}
-
-	// 2) 소유 캐릭터 메시 소켓 (캐릭터 메시에 포가 달린 경우)
+	// 1) 소유 캐릭터 메시 소켓 (총구·손은 캐릭터 메시에 있다)
 	if (const ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))
 	{
 		const USkeletalMeshComponent* CharacterMesh = OwnerCharacter->GetMesh();
-		if (CharacterMesh && CharacterMesh->DoesSocketExist(InSocketName))
+		if (CharacterMesh != nullptr && CharacterMesh->DoesSocketExist(InSocketName))
 		{
 			return CharacterMesh->GetSocketLocation(InSocketName);
 		}
 	}
 
-	// 3) 액터 위치
+	// 2) 소켓이 없으면 액터 위치
 	return GetActorLocation();
 }
 
@@ -128,7 +114,7 @@ void AURGWeapon::GetOwnerViewPoint(FVector& OutLocation, FRotator& OutRotation) 
 	}
 }
 
-bool AURGWeapon::ApplyDamageToHit(const FHitResult& InHit, const FVector& InDamageDirection, const float InDamage, const bool bInCrit)
+bool AURGWeapon::ApplyDamageToHit(const FHitResult& InHit, const FVector& InDamageDirection, float InDamage, bool bInCrit)
 {
 	AActor* TargetActor = InHit.GetActor();
 	AActor* OwnerActor = GetOwner();
@@ -155,7 +141,7 @@ bool AURGWeapon::ApplyDamageToHit(const FHitResult& InHit, const FVector& InDama
 	const bool bLanded = ReportHit(TargetActor, HealthBefore, InHit.ImpactPoint, bCrit);
 
 	// 태그 시너지 적중 효과 (화상·전이). 데미지 뒤에 걸어야 이번 한 방에 죽은 대상을 거를 수 있다
-	if (CombatComponent)
+	if (CombatComponent != nullptr)
 	{
 		CombatComponent->ApplyOnHitEffects(TargetActor, InHit.ImpactPoint, Damage);
 	}
@@ -166,7 +152,7 @@ bool AURGWeapon::ApplyDamageToHit(const FHitResult& InHit, const FVector& InDama
 float AURGWeapon::GetAliveHealth(const AActor* InTarget)
 {
 	const AURGCharacter* TargetCharacter = Cast<AURGCharacter>(InTarget);
-	const UURGAttributeComponent* Attribute = TargetCharacter ? TargetCharacter->GetAttributeComponent() : nullptr;
+	const UURGAttributeComponent* Attribute = TargetCharacter != nullptr ? TargetCharacter->GetAttributeComponent() : nullptr;
 	if (Attribute == nullptr || !Attribute->IsAlive())
 	{
 		return -1.0f;
@@ -175,7 +161,7 @@ float AURGWeapon::GetAliveHealth(const AActor* InTarget)
 	return Attribute->GetCurrentHealth();
 }
 
-bool AURGWeapon::ReportHit(const AActor* InTarget, const float InHealthBefore, const FVector& InLocation, const bool bInCrit) const
+bool AURGWeapon::ReportHit(const AActor* InTarget, float InHealthBefore, const FVector& InLocation, bool bInCrit) const
 {
 	// 맞기 전에 이미 죽었거나 캐릭터가 아니면 알릴 것이 없다
 	if (InHealthBefore < 0.0f)
@@ -185,7 +171,7 @@ bool AURGWeapon::ReportHit(const AActor* InTarget, const float InHealthBefore, c
 
 	// 적은 사망 처리에서 바로 Destroy되지만, 실제 해제는 다음 GC라 같은 프레임 안에서는 컴포넌트를 읽을 수 있다
 	const AURGCharacter* TargetCharacter = Cast<AURGCharacter>(InTarget);
-	const UURGAttributeComponent* Attribute = TargetCharacter ? TargetCharacter->GetAttributeComponent() : nullptr;
+	const UURGAttributeComponent* Attribute = TargetCharacter != nullptr ? TargetCharacter->GetAttributeComponent() : nullptr;
 	if (Attribute == nullptr)
 	{
 		return false;
@@ -197,7 +183,7 @@ bool AURGWeapon::ReportHit(const AActor* InTarget, const float InHealthBefore, c
 		return false;
 	}
 
-	if (CombatComponent)
+	if (CombatComponent != nullptr)
 	{
 		CombatComponent->NotifyHitDealt(InLocation, DealtDamage, bInCrit, !Attribute->IsAlive());
 	}
@@ -208,10 +194,10 @@ bool AURGWeapon::ReportHit(const AActor* InTarget, const float InHealthBefore, c
 APlayerController* AURGWeapon::GetOwnerPlayerController() const
 {
 	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	return OwnerPawn ? Cast<APlayerController>(OwnerPawn->GetController()) : nullptr;
+	return OwnerPawn != nullptr ? Cast<APlayerController>(OwnerPawn->GetController()) : nullptr;
 }
 
-void AURGWeapon::PlayOwnerCameraShake(const float InScale) const
+void AURGWeapon::PlayOwnerCameraShake(float InScale) const
 {
 	if (CameraShakeClass == nullptr || InScale <= 0.0f)
 	{

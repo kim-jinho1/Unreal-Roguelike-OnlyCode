@@ -6,7 +6,7 @@ UURGResourceComponent::UURGResourceComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UURGResourceComponent::Add(const int32 InAmount)
+void UURGResourceComponent::Add(int32 InAmount)
 {
 	if (InAmount <= 0)
 	{
@@ -17,13 +17,13 @@ void UURGResourceComponent::Add(const int32 InAmount)
 	OnResourceChanged.Broadcast(Resource);
 }
 
-void UURGResourceComponent::SetResource(const int32 InAmount)
+void UURGResourceComponent::SetResource(int32 InAmount)
 {
 	Resource = FMath::Max(0, InAmount);
 	OnResourceChanged.Broadcast(Resource);
 }
 
-bool UURGResourceComponent::TrySpend(const int32 InAmount)
+bool UURGResourceComponent::TrySpend(int32 InAmount)
 {
 	if (InAmount <= 0 || Resource < InAmount)
 	{

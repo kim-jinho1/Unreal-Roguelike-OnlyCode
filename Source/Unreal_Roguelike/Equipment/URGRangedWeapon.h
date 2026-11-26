@@ -27,7 +27,7 @@ protected:
 
 public:
 	/** 히트스캔 발사. 탄약을 소모하고 명중 시 데미지를 적용한다 */
-	virtual void Attack(FGameplayTag InAttackType) override;
+	virtual void Attack() override;
 
 	/** 탄약이 있어야 공격 가능 */
 	virtual bool CanAttack() const override;
@@ -58,7 +58,7 @@ protected:
 
 	/**
 	 * 명중 지점 데미지: ExplosionRadius가 있으면 범위, 없으면 명중 액터 점 데미지
-	 * @param InDamage 발사 시점에 계산해 둔 데미지 (도착 시점에는 공격 타입이 바뀌어 있을 수 있다)
+	 * @param InDamage 발사 시점에 계산해 둔 데미지 (도착 시점에는 부품 상태가 바뀌어 있을 수 있다)
 	 * @param bInCrit 발사 시점에 굴린 치명타 여부 (데미지 숫자 표시용)
 	 */
 	void ApplyShotDamage(const FHitResult& InHit, float InDamage, bool bInCrit);

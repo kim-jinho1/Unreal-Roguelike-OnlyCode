@@ -50,7 +50,7 @@ void AURGTitlePlayerController::HandleStartRequested()
 	// 이동에 실패하면(스테이지 풀이 비어 있는 등) 화면에 갇히지 않게 타이틀 조작을 되살린다
 	bShowMouseCursor = true;
 	SetInputMode(FInputModeUIOnly());
-	if (TitleWidget)
+	if (TitleWidget != nullptr)
 	{
 		TitleWidget->SetIsEnabled(true);
 	}

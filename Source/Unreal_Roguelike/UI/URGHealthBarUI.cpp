@@ -4,9 +4,15 @@
 #include "Components/TextBlock.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
-void UURGHealthBarUI::SetRatio(const float InRatio) const
+void UURGHealthBarUI::SetHealth(float InCurrent, float InMax) const
 {
-	if (HealthBar)
+	SetRatio(InMax > 0.0f ? InCurrent / InMax : 0.0f);
+	SetText(InCurrent, InMax);
+}
+
+void UURGHealthBarUI::SetRatio(float InRatio) const
+{
+	if (HealthBar != nullptr)
 	{
 		HealthBar->SetPercent(InRatio);
 	}
@@ -27,7 +33,7 @@ void UURGHealthBarUI::SetRatio(const float InRatio) const
 	}
 }
 
-void UURGHealthBarUI::SetText(const float InCurrent, const float InMax) const
+void UURGHealthBarUI::SetText(float InCurrent, float InMax) const
 {
 	if (HealthText == nullptr)
 	{

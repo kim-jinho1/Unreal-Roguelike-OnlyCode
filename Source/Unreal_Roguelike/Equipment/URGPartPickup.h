@@ -11,7 +11,7 @@
  * 그 슬롯에 이미 부품이 있었으면 그 부품이 같은 자리에 새 픽업으로 떨어진다(교환).
  * 메시는 부품 데이터의 PickupMesh, 없으면 DefaultMesh를 쓴다.
  * 메시마다 원본 크기·중심이 제각각이라 바운즈로 크기를 TargetSize에 맞추고 중심을 액터 원점에 맞춘 뒤,
- * 기울인 채로 제자리 회전 + 위아래로 둥실거리게 한다. 부품 슬롯별 색으로 발광시켜 슬롯을 구분한다.
+ * 기울인 채로 제자리 회전 + 위아래로 둥실거리게 한다(MotionComponent). 부품 슬롯별 색으로 발광시켜 슬롯을 구분한다.
  */
 UCLASS()
 class UNREAL_ROGUELIKE_API AURGPartPickup : public AActor, public IURGInteractable
@@ -24,9 +24,6 @@ public:
 protected:
 	/** 부품 데이터에 맞는 메시 적용 (에디터/스폰 시) */
 	virtual void OnConstruction(const FTransform& Transform) override;
-
-public:
-	virtual void Tick(float DeltaSeconds) override;
 
 public:
 	FORCEINLINE class UURGPartDataAsset* GetPart() const { return Part; }
@@ -54,6 +51,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "PartPickup|Mesh")
 	TObjectPtr<class UStaticMeshComponent> Mesh;
 
+	/** 제자리 회전·둥실거림 연출 */
+	UPROPERTY(VisibleAnywhere, Category = "PartPickup|Visual")
+	TObjectPtr<class UURGPickupMotionComponent> MotionComponent;
+
 	/** 이 픽업이 주는 부품 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Part")
 	TObjectPtr<class UURGPartDataAsset> Part;
@@ -61,10 +62,6 @@ protected:
 	/** 부품 데이터에 PickupMesh가 없을 때 쓰는 메시 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Mesh")
 	TObjectPtr<class UStaticMesh> DefaultMesh;
-
-	/** 제자리 회전 속도 (도/초). 0이면 회전하지 않는다 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Visual")
-	float RotationSpeed = 60.0f;
 
 	/** 메시의 가장 긴 변을 이 길이(cm)로 맞춘다. 원본 크기와 상관없이 픽업 크기가 같아진다 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Visual", meta = (ClampMin = "1.0"))
@@ -77,14 +74,6 @@ protected:
 	/** 액터 원점에서 메시 중심을 띄우는 높이 (cm). 바닥에 직접 놓는 픽업용 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Visual")
 	float HoverHeight = 0.0f;
-
-	/** 위아래로 둥실거리는 폭 (cm, 중심에서 한쪽). 0이면 움직이지 않는다 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Visual", meta = (ClampMin = "0.0"))
-	float BobHeight = 8.0f;
-
-	/** 둥실거림 속도 (초당 왕복 횟수) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Visual", meta = (ClampMin = "0.0"))
-	float BobFrequency = 0.5f;
 
 	/** 슬롯 색을 입힐 머티리얼 (벡터 파라미터 Color 필요). 없으면 메시 원래 머티리얼 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PartPickup|Visual")
@@ -103,13 +92,6 @@ protected:
 	/** 상호작용 안내 문구 포맷 ({0} = 부품 이름) */
 	UPROPERTY(EditDefaultsOnly, Category = "PartPickup|Text")
 	FText InteractTextFormat = NSLOCTEXT("URG.PartPickup", "InteractFormat", "{0} 장착");
-
-private:
-	/** ApplyPartMesh가 계산한 메시 기준 위치 (중심 보정 + HoverHeight). 둥실거림은 여기에 더한다 */
-	FVector MeshBaseLocation = FVector::ZeroVector;
-
-	/** 둥실거림 경과 시간 (초) */
-	float BobTime = 0.0f;
 
 };
 

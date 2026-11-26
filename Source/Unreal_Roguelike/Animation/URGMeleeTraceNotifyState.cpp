@@ -13,16 +13,6 @@ void UURGMeleeTraceNotifyState::NotifyBegin(USkeletalMeshComponent* MeshComp, UA
 	}
 }
 
-void UURGMeleeTraceNotifyState::NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference)
-{
-	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
-
-	if (AURGMeleeWeapon* MeleeWeapon = GetMeleeWeapon(MeshComp))
-	{
-		MeleeWeapon->UpdateTrace();
-	}
-}
-
 void UURGMeleeTraceNotifyState::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
 	Super::NotifyEnd(MeshComp, Animation, EventReference);
@@ -40,7 +30,7 @@ FString UURGMeleeTraceNotifyState::GetNotifyName_Implementation() const
 
 AURGMeleeWeapon* UURGMeleeTraceNotifyState::GetMeleeWeapon(const USkeletalMeshComponent* InMeshComp) const
 {
-	const AActor* OwnerActor = InMeshComp ? InMeshComp->GetOwner() : nullptr;
+	const AActor* OwnerActor = InMeshComp != nullptr ? InMeshComp->GetOwner() : nullptr;
 	if (OwnerActor == nullptr)
 	{
 		return nullptr;

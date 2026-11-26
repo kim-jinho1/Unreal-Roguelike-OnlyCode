@@ -70,7 +70,7 @@ FReply UURGRepairMenuUI::NativeOnMouseButtonDown(const FGeometry& InGeometry, co
 	return FReply::Handled();
 }
 
-void UURGRepairMenuUI::InitializeForPart(const UURGPartComponent* InPartComponent, const int32 InResource, const int32 InRepairCost)
+void UURGRepairMenuUI::InitializeForPart(const UURGPartComponent* InPartComponent, int32 InResource, int32 InRepairCost)
 {
 	if (InPartComponent == nullptr)
 	{
@@ -108,7 +108,7 @@ void UURGRepairMenuUI::InitializeForPart(const UURGPartComponent* InPartComponen
 			Entry.Label = EmptySlotText;
 		}
 
-		if (Entry.SlotUI)
+		if (Entry.SlotUI != nullptr)
 		{
 			Entry.SlotUI->SetSlotState(State);
 			Entry.SlotUI->SetRenderOpacity(Entry.bCanRepair ? 1.0f : DisabledOpacity);
@@ -118,7 +118,7 @@ void UURGRepairMenuUI::InitializeForPart(const UURGPartComponent* InPartComponen
 
 	HoveredIndex = INDEX_NONE;
 
-	if (CenterText)
+	if (CenterText != nullptr)
 	{
 		CenterText->SetText(IdlePromptText);
 	}
@@ -161,7 +161,7 @@ void UURGRepairMenuUI::SetHoveredEntry(int32 InIndex)
 
 	if (!Entries.IsValidIndex(HoveredIndex))
 	{
-		if (CenterText)
+		if (CenterText != nullptr)
 		{
 			CenterText->SetText(IdlePromptText);
 		}
@@ -171,12 +171,12 @@ void UURGRepairMenuUI::SetHoveredEntry(int32 InIndex)
 	const FURGRepairWheelEntry& Entry = Entries[HoveredIndex];
 
 	// 고를 수 없는 칸도 상태는 보여 주되, 확대는 고를 수 있는 칸만 해서 클릭이 먹힐지 구분되게 한다
-	if (Entry.SlotUI && Entry.bCanRepair)
+	if (Entry.SlotUI != nullptr && Entry.bCanRepair)
 	{
 		Entry.SlotUI->SetRenderScale(FVector2D(HoverScale));
 	}
 
-	if (CenterText)
+	if (CenterText != nullptr)
 	{
 		CenterText->SetText(Entry.Label);
 	}

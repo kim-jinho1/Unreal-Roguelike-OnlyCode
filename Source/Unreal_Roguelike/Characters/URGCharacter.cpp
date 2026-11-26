@@ -9,7 +9,8 @@
 
 AURGCharacter::AURGCharacter()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	// 베이스는 피격·사망을 이벤트로만 처리하므로 Tick이 필요 없다. 매 프레임 일이 있는 파생 클래스가 자기 생성자에서 켠다.
+	PrimaryActorTick.bCanEverTick = false;
 
 	// 컨트롤러 회전은 사용하지 않고, 이동 방향으로 메시가 회전하게 한다.
 	bUseControllerRotationPitch = false;
@@ -40,16 +41,6 @@ void AURGCharacter::BeginPlay()
 	}
 }
 
-void AURGCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-}
-
-void AURGCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-}
-
 bool AURGCharacter::IsDead() const
 {
 	if (StateComponent == nullptr)
@@ -66,7 +57,7 @@ void AURGCharacter::HandleDeath()
 	if (StateComponent)
 	{
 		StateComponent->SetCurrentState(URGGameplayTags::Character_State_Death);
-		StateComponent->ToggleMovementInput(false);
+		StateComponent->SetMovementInputEnabled(false);
 	}
 
 	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
@@ -89,19 +80,4 @@ void AURGCharacter::HandleDeath()
 			GameMode->SpawnResourceDrop(GetActorLocation());
 		}
 	}
-}
-
-EURGHitDirection AURGCharacter::CalcHitDirection(const FVector& InSourceLocation) const
-{
-	const FVector ToSource = (InSourceLocation - GetActorLocation()).GetSafeNormal2D();
-	const float Fwd = FVector::DotProduct(GetActorForwardVector(), ToSource);
-	const float Rgt = FVector::DotProduct(GetActorRightVector(), ToSource);
-
-	// 앞뒤 성분이 좌우 성분보다 크면 앞뒤 축, 아니면 좌우 축. 부호로 방향을 가른다.
-	if (FMath::Abs(Fwd) >= FMath::Abs(Rgt))
-	{
-		return Fwd >= 0.0f ? EURGHitDirection::Front : EURGHitDirection::Back;
-	}
-
-	return Rgt >= 0.0f ? EURGHitDirection::Right : EURGHitDirection::Left;
 }

@@ -1,4 +1,5 @@
 #include "Equipment/URGResourcePickup.h"
+#include "Component/URGPickupMotionComponent.h"
 #include "Component/URGResourceComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -6,10 +7,22 @@
 #include "GameFramework/Pawn.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
+namespace
+{
+	/** 자원 픽업 제자리 회전 속도 (도/초) */
+	constexpr float ResourcePickupRotationSpeed = 90.0f;
+
+	/** 자원 픽업 둥실거림 폭 (cm) */
+	constexpr float ResourcePickupBobHeight = 6.0f;
+
+	/** 자원 픽업 둥실거림 속도 (초당 왕복 횟수) */
+	constexpr float ResourcePickupBobFrequency = 0.6f;
+}
+
 AURGResourcePickup::AURGResourcePickup()
 {
-	// 회전·둥실거림 연출에 매 프레임 갱신이 필요하다
-	PrimaryActorTick.bCanEverTick = true;
+	// 회전·둥실거림은 MotionComponent가 Tick하므로 액터 자체는 매 프레임 갱신할 일이 없다
+	PrimaryActorTick.bCanEverTick = false;
 
 	CollectSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollectSphere"));
 	SetRootComponent(CollectSphere);
@@ -25,13 +38,17 @@ AURGResourcePickup::AURGResourcePickup()
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PickupMesh"));
 	Mesh->SetupAttachment(CollectSphere);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	MotionComponent = CreateDefaultSubobject<UURGPickupMotionComponent>(TEXT("Motion"));
+	MotionComponent->SetMotionDefaults(ResourcePickupRotationSpeed, ResourcePickupBobHeight, ResourcePickupBobFrequency);
 }
 
 void AURGResourcePickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MeshBaseLocation = Mesh->GetRelativeLocation();
+	// 수집 범위가 흔들리지 않도록 액터는 그대로 두고 메시만 BP에서 놓은 위치를 기준으로 둥실거린다
+	MotionComponent->SetBobTarget(Mesh, Mesh->GetRelativeLocation());
 	ApplyGlowColor();
 
 	CollectSphere->OnComponentBeginOverlap.AddDynamic(this, &AURGResourcePickup::HandleCollectBeginOverlap);
@@ -55,24 +72,6 @@ void AURGResourcePickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	CollectSphere->OnComponentBeginOverlap.RemoveDynamic(this, &AURGResourcePickup::HandleCollectBeginOverlap);
 
 	Super::EndPlay(EndPlayReason);
-}
-
-void AURGResourcePickup::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-
-	if (RotationSpeed != 0.0f)
-	{
-		AddActorLocalRotation(FRotator(0.0f, RotationSpeed * DeltaSeconds, 0.0f));
-	}
-
-	// 수집 범위가 흔들리지 않도록 액터는 그대로 두고 메시만 위아래로 움직인다
-	if (BobHeight > 0.0f && BobFrequency > 0.0f)
-	{
-		BobTime += DeltaSeconds;
-		const float BobOffset = FMath::Sin(BobTime * BobFrequency * UE_TWO_PI) * BobHeight;
-		Mesh->SetRelativeLocation(MeshBaseLocation + FVector(0.0f, 0.0f, BobOffset));
-	}
 }
 
 void AURGResourcePickup::HandleCollectBeginOverlap(UPrimitiveComponent* InOverlappedComponent, AActor* InOtherActor, UPrimitiveComponent* InOtherComp, int32 InOtherBodyIndex, bool bInFromSweep, const FHitResult& InSweepResult)

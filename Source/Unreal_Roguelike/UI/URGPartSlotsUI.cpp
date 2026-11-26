@@ -1,7 +1,7 @@
 #include "UI/URGPartSlotsUI.h"
 #include "UI/URGPartSlotUI.h"
 
-void UURGPartSlotsUI::SetSlotState(const EURGPartSlot InSlot, const FURGPartSlotState& InState) const
+void UURGPartSlotsUI::SetSlotState(EURGPartSlot InSlot, const FURGPartSlotState& InState) const
 {
 	if (UURGPartSlotUI* SlotUI = GetSlotUI(InSlot))
 	{
@@ -9,7 +9,7 @@ void UURGPartSlotsUI::SetSlotState(const EURGPartSlot InSlot, const FURGPartSlot
 	}
 }
 
-void UURGPartSlotsUI::SetSlotSynergyTags(const EURGPartSlot InSlot, const FText& InTagText, const FLinearColor& InColor) const
+void UURGPartSlotsUI::SetSlotSynergyTags(EURGPartSlot InSlot, const FText& InTagText, const FLinearColor& InColor) const
 {
 	if (UURGPartSlotUI* SlotUI = GetSlotUI(InSlot))
 	{
@@ -17,15 +17,15 @@ void UURGPartSlotsUI::SetSlotSynergyTags(const EURGPartSlot InSlot, const FText&
 	}
 }
 
-void UURGPartSlotsUI::SetCoreAbilityState(const bool bInActive, const float InCooldownEndTime, const float InCooldownDuration) const
+void UURGPartSlotsUI::SetCoreAbilityState(bool bInActive, float InCooldownEndTime, float InCooldownDuration) const
 {
-	if (CoreSlotUI)
+	if (CoreSlotUI != nullptr)
 	{
 		CoreSlotUI->SetAbilityState(bInActive, InCooldownEndTime, InCooldownDuration);
 	}
 }
 
-void UURGPartSlotsUI::SetSlotCooldownState(const EURGPartSlot InSlot, const float InCooldownEndTime, const float InCooldownDuration) const
+void UURGPartSlotsUI::SetSlotCooldownState(EURGPartSlot InSlot, float InCooldownEndTime, float InCooldownDuration) const
 {
 	if (UURGPartSlotUI* SlotUI = GetSlotUI(InSlot))
 	{
@@ -33,7 +33,7 @@ void UURGPartSlotsUI::SetSlotCooldownState(const EURGPartSlot InSlot, const floa
 	}
 }
 
-UURGPartSlotUI* UURGPartSlotsUI::GetSlotUI(const EURGPartSlot InSlot) const
+UURGPartSlotUI* UURGPartSlotsUI::GetSlotUI(EURGPartSlot InSlot) const
 {
 	switch (InSlot)
 	{
